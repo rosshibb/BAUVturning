@@ -46,10 +46,11 @@ float phaseStart = 0.0; // starting time of the beat
 float phase = 0.0; // specific time during the beat period
 unsigned int beatPeriodMillis = 1500; // duration of the beat period in millisecond; Enter a value in multiples of servoPeriodMillis to ensure that there will be no drift over time because the last step within a beat is <20 ms. In this case, this corresponds to a difference between periods of only 0.02Hz.
 unsigned int beatPeriodMillisIncr = 100; // increment to increase and decrease the beat period duration to control the beat frequency
-unsigned float ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
+unsigned int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
 
 // Wave parameters
 float amplitude[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg; same order as in servoPins
+float amplitude_Stable[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg; same order as in servoPins
 float minAlpha[SERVOS*2] = {18.7606, 19.3838, 21.9856, 25.8914, 32.5847, 18.7606, 19.3838, 21.9856, 25.8914, 32.5847}; // minimum alpha, equivalent to alpha'; same order as in servoPins
 float tempAsym[SERVOS*2] = {0.5370, 0.4905, 0.5272, 0.5000, 0.4545, 0.5370, 0.4905, 0.5272, 0.5000, 0.4545}; // temporal asymmetry in t/T; same order as in servoPins
 float dPS[SERVOS*2] = {0.7500, 0.7989, 0.7675, 0.8142, 0.9899, 0.7500, 0.7989, 0.7675, 0.8142, 0.9899}; // shape of the power stroke - ascending cuve; same order as in servoPins
@@ -75,136 +76,8 @@ String readString;
 unsigned int servoPosMicro;
 
 
-void setup() {
-Serial.begin(9600); // Let's use the serial monitor for debugging
-// pinMode(switchPin,INPUT); // pint for the temporary switch to toggle through options
-IrReceiver.begin(switchPin, ENABLE_LED_FEEDBACK); // set up the IR receiver
-
-attachServos(); // initialize the servos (servo.attach)
-initializeMotion(lastLoopTimeMillis,phaseStart,phase); // initialize the motion of the legs (set phase = 0, enable the motors)
-// lastLoopTimeMillis = 0;
-alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);// initialize the first alpha degree point);// initialize the first alpha degree point
-}
-
-
-void loop() {
-// read the pin value for the switch controlling the options
-// total of 3 options: 0 = the legs are moved to their resting horizontal position; 1 = everything is disabled, the legs are kept vertical; 2 = run the kinematics motion program;  
-// optionSwitch(switchPin, state);
-optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged);
-// Serial.print(state);
-// Serial.print(",");
-// Serial.println(beatPeriodMillis);
-
-
-// maintain the legs in horizontal resting position
-if(state == 0){
-  // lastLoopTimeMillis = millis();
-  float tempAlphaHoriz = 25.0; // angle in degrees that each leg is stored at for transport
-  float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
-  servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
-  initializeMotion(lastLoopTimeMillis,phaseStart,phase); // initialize the motion of the legs (set phase = 0, enable the motors)
-  periodStepsCounter = 0;
-  alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);
-// Serial.println(state);
-}
-
-// run the kinematics program
-else if(state == 2){
- unsigned long currentMillis = millis(); // initiate the start time for the loop to ensure that each iteration of the code takes servoPeriodMillis seconds (here 20 ms)
-
-      if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
-        // Serial.print(currentMillis - lastLoopTimeMillis);
-        lastLoopTimeMillis = currentMillis; // reset the millis counter to keep track of the time before sending instructions for a new step
-
-        if(periodStepsCounter < beatPeriodSteps){
-
-          // Move the servo using the alpha for this corresponding phase that was pre-computed in the previous loop
-          servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
-          // Serial.print(",");
-          // Serial.print(periodStepsCounter);
-          // Serial.print(",");
-          // Serial.println(phase);
-          // Serial.println(alphaAngleDegree);
-          // Serial.print(servoPosMicro);
-          // Serial.print(alphaAngleDegree[9]);
-          // Serial.print(",");
-          // Serial.print(alphaAngleDegree[9]);
-          // Serial.print(",");
-          // Serial.println(beatPeriodMillis);
-
-          // Compute the alpha angle for the next period phase while the 20ms required to move the servo elapse
-          // checks if the serial monitor senses a change which corespond to a new beat period value
-          // if (Serial.available() > 0){ 
-          if (optionChanged == true){
-            // setBeatPeriod(servoPeriodMillis, beatPeriodMillis); // changes the beat period beatPeriodMillis to a new value (multiple of 20 ms) using input from the serial monitor.
-            updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter); // update the counter and phase to ensure a snooth transition from the previous step with different beat period
-            optionChanged = false; // re-set the option changed variable
-          }
-
-          else{
-          // Compute the alpha angle for the next period phase while the 20ms required to move the servo elapse
-          periodStepsCounter += 1; // increase the counter by one step
-          phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
-
-          }
-          // alphaAngleDegree = alphaAngleDeg(phase); // embedded within the write servo position function
-          alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
-
-          if (periodStepsCounter == beatPeriodSteps){
-            periodStepsCounter = 0;
-          }
-        }
-      }
-}
-
-// maintain the legs vertical
-else if(state == 1){
-  lastLoopTimeMillis = millis();
-  float tempAlphaHoriz = 90; // angle in degrees that each leg is stored at for vertical
-  float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
-  servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
-Serial.println(state);
-}
-
-// Reset state to servo disabled
-else{
-  state = 0;
-}
-
-}
-
-
-// CUSTOM FUNCTIONS
-// Attach the servos
-void attachServos(){
-for (unsigned int i = 0; i < SERVOS; i++){
-  Pleft[i].attach(servoPins[i],minServoPulse[i],maxServoPulse[i]);
-  Pright[i].attach(servoPins[i+SERVOS],minServoPulse[i+SERVOS],maxServoPulse[i+SERVOS]);
-}
-}
-
-
-// Initialize motion program
-void initializeMotion(unsigned long &last_Loop_Time_Millis, float &phase_Start, float &phase_ ) {
-  // beat_period_millis = _beat_period_millis;
-  last_Loop_Time_Millis = 0;
-  phase_Start = 0; 
-  phase_ = 0; // reset phase to zero
-  // motors_enabled = true;
-}
-
-// Read the pin value for the switch controling the options
-// void optionSwitch(unsigned int switch_Pin, unsigned int &State){
-// if(digitalRead(switch_Pin) == HIGH){ // total of 4 options: 0 = everything is disabled; 1 = run the kinematics motion program
-//     State+=1; // increase the value by +1 to switch between options
-//       while(digitalRead(switch_Pin) == HIGH)
-//       {}  
-//   }
-// }
-
 // Read the values output by the IR remote controlling the program options
-void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float &amplitude_[SERVOS*2]){
+void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude[SERVOS*2]){
   if(IrReceiver.decode()){  
   if(IrReceiver.decodedIRData.decodedRawData == Button0){ // default option, keep the legs horizontal
     State = 0;
@@ -276,11 +149,154 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
     }
     // option_Changed = true;
   }
-}
+  else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // decrease the amplitude of the left leg by ampIncrementDegree (5 for now)
+    for(unsigned int i = 0; i < SERVOS; i++){
+      if((amplitude[i] - ampIncrementDegree) > 0){
+        amplitude[i] = amplitude[i] + ampIncrementDegree;
+      }
+    }
+    // option_Changed = true;
+  }
 
 IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
 }
 }
+
+void setup() {
+Serial.begin(9600); // Let's use the serial monitor for debugging
+// pinMode(switchPin,INPUT); // pint for the temporary switch to toggle through options
+IrReceiver.begin(switchPin, ENABLE_LED_FEEDBACK); // set up the IR receiver
+
+attachServos(); // initialize the servos (servo.attach)
+initializeMotion(lastLoopTimeMillis,phaseStart,phase); // initialize the motion of the legs (set phase = 0, enable the motors)
+// lastLoopTimeMillis = 0;
+alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);// initialize the first alpha degree point);// initialize the first alpha degree point
+}
+
+
+void loop() {
+// read the pin value for the switch controlling the options
+// total of 3 options: 0 = the legs are moved to their resting horizontal position; 1 = everything is disabled, the legs are kept vertical; 2 = run the kinematics motion program;  
+// optionSwitch(switchPin, state);
+optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude);
+// Serial.print(state);
+// Serial.print(",");
+// Serial.println(beatPeriodMillis);
+
+
+// maintain the legs in horizontal resting position
+if(state == 0){
+  // lastLoopTimeMillis = millis();
+  float tempAlphaHoriz = 25.0; // angle in degrees that each leg is stored at for transport
+  float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
+  servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
+  initializeMotion(lastLoopTimeMillis,phaseStart,phase); // initialize the motion of the legs (set phase = 0, enable the motors)
+  periodStepsCounter = 0;
+  alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);
+  // Serial.println(state);
+  for(unsigned int i = 0; i < SERVOS*2; i++){
+      amplitude[i] = amplitude_Stable[i];
+  }
+}
+
+// run the kinematics program
+else if(state == 2){
+ unsigned long currentMillis = millis(); // initiate the start time for the loop to ensure that each iteration of the code takes servoPeriodMillis seconds (here 20 ms)
+
+      if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
+        // Serial.print(currentMillis - lastLoopTimeMillis);
+        lastLoopTimeMillis = currentMillis; // reset the millis counter to keep track of the time before sending instructions for a new step
+
+        if(periodStepsCounter < beatPeriodSteps){
+
+          // Move the servo using the alpha for this corresponding phase that was pre-computed in the previous loop
+          servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
+          // Serial.print(",");
+          // Serial.print(periodStepsCounter);
+          // Serial.print(",");
+          // Serial.println(phase);
+          // Serial.println(alphaAngleDegree);
+          // Serial.print(servoPosMicro);
+          // Serial.print(alphaAngleDegree[9]);
+          // Serial.print(",");
+          // Serial.print(alphaAngleDegree[9]);
+          // Serial.print(",");
+          // Serial.println(beatPeriodMillis);
+
+          // Compute the alpha angle for the next period phase while the 20ms required to move the servo elapse
+          // checks if the serial monitor senses a change which corespond to a new beat period value
+          // if (Serial.available() > 0){ 
+          if (optionChanged == true){
+            // setBeatPeriod(servoPeriodMillis, beatPeriodMillis); // changes the beat period beatPeriodMillis to a new value (multiple of 20 ms) using input from the serial monitor.
+            updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter); // update the counter and phase to ensure a snooth transition from the previous step with different beat period
+            optionChanged = false; // re-set the option changed variable
+          }
+
+          else{
+          // Compute the alpha angle for the next period phase while the 20ms required to move the servo elapse
+          periodStepsCounter += 1; // increase the counter by one step
+          phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
+
+          }
+          // alphaAngleDegree = alphaAngleDeg(phase); // embedded within the write servo position function
+          alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
+
+          if (periodStepsCounter == beatPeriodSteps){
+            periodStepsCounter = 0;
+          }
+        }
+      }
+}
+
+// maintain the legs vertical
+else if(state == 1){
+  lastLoopTimeMillis = millis();
+  float tempAlphaHoriz = 90; // angle in degrees that each leg is stored at for vertical
+  float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
+  servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
+  Serial.println(state);
+  for(unsigned int i = 0; i < SERVOS*2; i++){
+        amplitude[i] = amplitude_Stable[i];
+    }
+}
+
+// Reset state to servo disabled
+else{
+  state = 0;
+}
+
+}
+
+
+// CUSTOM FUNCTIONS
+// Attach the servos
+void attachServos(){
+for (unsigned int i = 0; i < SERVOS; i++){
+  Pleft[i].attach(servoPins[i],minServoPulse[i],maxServoPulse[i]);
+  Pright[i].attach(servoPins[i+SERVOS],minServoPulse[i+SERVOS],maxServoPulse[i+SERVOS]);
+}
+}
+
+
+// Initialize motion program
+void initializeMotion(unsigned long &last_Loop_Time_Millis, float &phase_Start, float &phase_ ) {
+  // beat_period_millis = _beat_period_millis;
+  last_Loop_Time_Millis = 0;
+  phase_Start = 0; 
+  phase_ = 0; // reset phase to zero
+  // motors_enabled = true;
+}
+
+// Read the pin value for the switch controling the options
+// void optionSwitch(unsigned int switch_Pin, unsigned int &State){
+// if(digitalRead(switch_Pin) == HIGH){ // total of 4 options: 0 = everything is disabled; 1 = run the kinematics motion program
+//     State+=1; // increase the value by +1 to switch between options
+//       while(digitalRead(switch_Pin) == HIGH)
+//       {}  
+//   }
+// }
+
+
 
 
 // Kinematics equation that generates the angle for the corresponding phase of the beat - added after phase calculation
