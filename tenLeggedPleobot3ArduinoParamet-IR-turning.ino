@@ -18,9 +18,9 @@
 #define ButtonMinus 0xF807FF00    // decrease the frequency -- Volume Minus on remote
 #define ButtonNext 0xBF40FF00     // Move to the next program (current option + 1)
 #define ButtonPrev 0xBB44FF00     // Move to the previous program (current option - 1)
-#define ButtonChMinus 0xBA45FF00  // Currently unused
+#define ButtonChMinus 0xBA45FF00  // decrease the left leg angle by 5 degrees
 #define ButtonCh 0xB946FF00       // Currently unused
-#define ButtonChPlus 0xB847FF00   // Currently unused
+#define ButtonChPlus 0xB847FF00   // increase the left leg angle by 5 degrees
 #define ButtonPlayPause 0xBC43FF00  // Currently unused
 #define ButtonEQ 0xF609FF00       // Currently unused
 
@@ -46,6 +46,7 @@ float phaseStart = 0.0; // starting time of the beat
 float phase = 0.0; // specific time during the beat period
 unsigned int beatPeriodMillis = 1500; // duration of the beat period in millisecond; Enter a value in multiples of servoPeriodMillis to ensure that there will be no drift over time because the last step within a beat is <20 ms. In this case, this corresponds to a difference between periods of only 0.02Hz.
 unsigned int beatPeriodMillisIncr = 100; // increment to increase and decrease the beat period duration to control the beat frequency
+unsigned float ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
 
 // Wave parameters
 float amplitude[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg; same order as in servoPins
@@ -157,7 +158,6 @@ else if(state == 2){
       }
 }
 
-
 // maintain the legs vertical
 else if(state == 1){
   lastLoopTimeMillis = millis();
@@ -204,7 +204,7 @@ void initializeMotion(unsigned long &last_Loop_Time_Millis, float &phase_Start, 
 // }
 
 // Read the values output by the IR remote controlling the program options
-void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed){
+void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float &amplitude_[SERVOS*2]){
   if(IrReceiver.decode()){  
   if(IrReceiver.decodedIRData.decodedRawData == Button0){ // default option, keep the legs horizontal
     State = 0;
@@ -267,6 +267,16 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       }
     }
   }
+
+  else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // decrease the amplitude of the left leg by ampIncrementDegree (5 for now)
+    for(unsigned int i = 0; i < SERVOS; i++){
+      if((amplitude[i] - ampIncrementDegree) > 0){
+        amplitude[i] = amplitude[i] - ampIncrementDegree;
+      }
+    }
+    // option_Changed = true;
+  }
+}
 
 IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
 }
