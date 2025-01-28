@@ -18,11 +18,11 @@
 #define ButtonMinus 0xF807FF00    // decrease the frequency -- Volume Minus on remote
 #define ButtonNext 0xBF40FF00     // Move to the next program (current option + 1)
 #define ButtonPrev 0xBB44FF00     // Move to the previous program (current option - 1)
-#define ButtonChMinus 0xBA45FF00  // decrease the left leg angle by 5 degrees
-#define ButtonCh 0xB946FF00       // Currently unused
-#define ButtonChPlus 0xB847FF00   // increase the left leg angle by 5 degrees
+#define ButtonChMinus 0xBA45FF00  // decrease a side leg angle by 5 degrees
+#define ButtonCh 0xB946FF00       // Currently switch which side you are controlling the increase/decrease angle of
+#define ButtonChPlus 0xB847FF00   // increase a side leg angle by 5 degrees
 #define ButtonPlayPause 0xBC43FF00  // Currently unused
-#define ButtonEQ 0xF609FF00       // Currently unused
+#define ButtonEQ 0xF609FF00       // Used to reset the amplitude changes to currently controlled side
 
 // Store the servo specs
 // calibration parameters for 2nd prototype
@@ -164,6 +164,11 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       leftRightControl = 0;
     }
   }
+  else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to currently controlled side
+    for(unsigned int i = 0; i < SERVOS; i++){
+        amplitude[i+(leftRightControl*5)] = amplitude_Stable[i+(leftRightControl*5)];
+    }
+  }
 
 IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
 }
@@ -201,7 +206,7 @@ if(state == 0){
   periodStepsCounter = 0;
   alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);
   // Serial.println(state);
-  for(unsigned int i = 0; i < SERVOS*2; i++){
+  for(unsigned int i = 0; i < SERVOS*2; i++){ // Reset the amplitude changes so that the when you enter the motion program it will be default
       amplitude[i] = amplitude_Stable[i];
   }
 }
@@ -262,7 +267,7 @@ else if(state == 1){
   float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
   servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
   Serial.println(state);
-  for(unsigned int i = 0; i < SERVOS*2; i++){
+  for(unsigned int i = 0; i < SERVOS*2; i++){ // Reset the amplitude changes so that the when you enter the motion program it will be default
         amplitude[i] = amplitude_Stable[i];
     }
 }
