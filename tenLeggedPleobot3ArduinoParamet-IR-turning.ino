@@ -31,6 +31,7 @@ unsigned int minServoPulse[SERVOS*2] = {650,650,650,650,650,650,650,650,650,650}
 unsigned int maxServoPulse[SERVOS*2] = {2350,2350,2350,2350,2350,2350,2350,2350,2350,2350}; // maximum servo pulse; same order as in servoPins
 float servoAngleRange[SERVOS*2] = {155.641,156.466,153.502,158.893,159.532,155.155,157.404,157.125,158.934,154.985}; // measured physical range of the servo for the respective min and max pulse. Requires initial calibration of each servo to determine their range. ; Same order as in servoPins
 int corrFact[SERVOS*2] = {-30,45,20,45,-15,20,-30,35,-60,-40}; // correction factor after the servos are installed to align the pleopods perfectly vertically; same order as in servoPins
+unsigned int leftRightControl = 0; // for controlling altering the amplitude of either side. Starts at 0 -> Left. Will be able to switch to 1 -> Right, with press of the CH button.
 const unsigned int servoUpdatePeriodMillis = 20; // 20ms = 50Hz, the default for servo actuation
 
 const unsigned int servoPeriodMillis = 20; // time to update the servo position given by servo.write 20ms = 50Hz, the default for servo actuation
@@ -77,7 +78,7 @@ unsigned int servoPosMicro;
 
 
 // Read the values output by the IR remote controlling the program options
-void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude[SERVOS*2]){
+void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude[SERVOS*2], unsigned int &leftRightControl){
   if(IrReceiver.decode()){  
   if(IrReceiver.decodedIRData.decodedRawData == Button0){ // default option, keep the legs horizontal
     State = 0;
@@ -143,19 +144,25 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
 
   else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // decrease the amplitude of the left leg by ampIncrementDegree (5 for now)
     for(unsigned int i = 0; i < SERVOS; i++){
-      if((amplitude[i] - ampIncrementDegree) > 0){
-        amplitude[i] = amplitude[i] - ampIncrementDegree;
+      if((amplitude[i+(leftRightControl*5)] - ampIncrementDegree) > 0){ // Check to make sure that we are not going to decrease below 0
+        amplitude[i+(leftRightControl*5)] = amplitude[i+(leftRightControl*5)] - ampIncrementDegree;
       }
     }
     // option_Changed = true;
   }
   else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // decrease the amplitude of the left leg by ampIncrementDegree (5 for now)
     for(unsigned int i = 0; i < SERVOS; i++){
-      if((amplitude[i] - ampIncrementDegree) > 0){
-        amplitude[i] = amplitude[i] + ampIncrementDegree;
+      if((amplitude[i+(leftRightControl*5)] + ampIncrementDegree) <= (amplitude_Stable[i+(leftRightControl*5)] + 20)){ // Check to make sure that we are not going to increase too much above the original val
+        amplitude[i+(leftRightControl*5)] = amplitude[i+(leftRightControl*5)] + ampIncrementDegree;
       }
     }
     // option_Changed = true;
+  }
+  else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // change the side we are decreasing/increasing the amplitude of
+    leftRightControl = leftRightControl + 1;
+    if(leftRightControl >= 2){
+      leftRightControl = 0;
+    }
   }
 
 IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
@@ -178,7 +185,7 @@ void loop() {
 // read the pin value for the switch controlling the options
 // total of 3 options: 0 = the legs are moved to their resting horizontal position; 1 = everything is disabled, the legs are kept vertical; 2 = run the kinematics motion program;  
 // optionSwitch(switchPin, state);
-optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude);
+optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, leftRightControl);
 // Serial.print(state);
 // Serial.print(",");
 // Serial.println(beatPeriodMillis);
