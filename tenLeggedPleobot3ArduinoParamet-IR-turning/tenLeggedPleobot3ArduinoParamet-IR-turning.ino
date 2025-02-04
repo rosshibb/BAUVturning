@@ -10,7 +10,7 @@
 #define Button2 0xE718FF00        // Perform horizontal zig-zag pogram
 #define Button3 0xA15EFF00        // Keep the legs vertical for maintenance
 #define Button4 0xF708FF00        // Swim in zigzag
-#define Button5 0xE31CFF00        // Currently unused
+#define Button5 0xE31CFF00        // Swim with varying pitch
 #define Button6 0xA55AFF00        // Currently unused
 #define Button7 0xBD42FF00        // Currently unused
 #define Button8 0xAD52FF00        // Currently unused
@@ -32,6 +32,7 @@ unsigned int maxServoPulse[SERVOS*2] = {2350,2350,2350,2350,2350,2350,2350,2350,
 float servoAngleRange[SERVOS*2] = {155.641,156.466,153.502,158.893,159.532,155.155,157.404,157.125,158.934,154.985}; // measured physical range of the servo for the respective min and max pulse. Requires initial calibration of each servo to determine their range. ; Same order as in servoPins
 int corrFact[SERVOS*2] = {-30,45,20,45,-15,20,-30,35,-60,-40}; // correction factor after the servos are installed to align the pleopods perfectly vertically; same order as in servoPins
 unsigned int leftRightControl = 0; // for controlling altering the amplitude of either side. Starts at 0 -> Left. Will be able to switch to 1 -> Right, with press of the CH button.
+unsigned int frontBackControl = 0; // for controlling altering the amplitude of the front and back. Starts at 0 -> Front. Will be able to switch to 1 -> Back, with press of the CH button when in state 5.
 const unsigned int servoUpdatePeriodMillis = 20; // 20ms = 50Hz, the default for servo actuation
 
 const unsigned int servoPeriodMillis = 20; // time to update the servo position given by servo.write 20ms = 50Hz, the default for servo actuation
@@ -48,6 +49,7 @@ float phase = 0.0; // specific time during the beat period
 unsigned int beatPeriodMillis = 1500; // duration of the beat period in millisecond; Enter a value in multiples of servoPeriodMillis to ensure that there will be no drift over time because the last step within a beat is <20 ms. In this case, this corresponds to a difference between periods of only 0.02Hz.
 unsigned int beatPeriodMillisIncr = 100; // increment to increase and decrease the beat period duration to control the beat frequency
 int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
+const int ampLimit = 30; // limit of amplitude difference from the default setting in pitch control
 
 // Wave parameters
 float amplitude[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg; same order as in servoPins
@@ -66,7 +68,6 @@ unsigned int periodStepsCounter = 0; // counter that changes with every servo st
 
 // turning parameters
 int turningLeftRight[] = {0,0,0,0,0}; // tells which way each leg is turning; left -> 0, right -> 1; e.g. {1,1,0,0,0} P1 and P2 are turning right, P3-5 are turning left
-int turningIncrementCount = 0; // this parameter times ampIncrementDegree is the angle displacement in degrees from the original amplitude
 int currentStrokeCount[] = {0,0,0,0,0}; // how many period of strokes each leg completed, resets to 0 at turningStrokeCount; e.g. {2,2,1,1,1} P1 and P2 completed 2 cycles, P3-5 completed 1
 int turningStrokeCount = 3; // stroke count before switching the turning side 
 float amplitudeChanged[SERVOS*2]; // the amplitude of the turning side legs
@@ -85,7 +86,7 @@ String readString;
 unsigned int servoPosMicro;
 
 // Read the values output by the IR remote controlling the program options
-void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude[SERVOS*2], unsigned int &leftRightControl){
+void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude[SERVOS*2], unsigned int &left_Right_Control){
   if(IrReceiver.decode()){  
   if(IrReceiver.decodedIRData.decodedRawData == Button0){ // default option, keep the legs horizontal
     State = 0;
@@ -107,8 +108,12 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
   // option_Changed = true;
   }
 
-  else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Keep the legs vertical to perform maintenance
+  else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Perform zigzag swimming motion
   State = 4;
+  // option_Changed = true;
+  }
+  else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
+  State = 5;
   // option_Changed = true;
   }
 
@@ -155,38 +160,56 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
   }
 
   else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
-    for(unsigned int i = 0; i < SERVOS; i++){
-      if((amplitude[i+(leftRightControl*5)] - ampIncrementDegree) > 0){ // Check to make sure that we are not going to decrease below 0
-        amplitude[i+(leftRightControl*5)] = amplitude[i+(leftRightControl*5)] - ampIncrementDegree;
+  if(State == 2){
+      for(unsigned int i = 0; i < SERVOS; i++){
+        if((amplitude[i+(left_Right_Control*5)] - ampIncrementDegree) > 0){ // Check to make sure that we are not going to decrease below 0
+          amplitude[i+(left_Right_Control*5)] = amplitude[i+(left_Right_Control*5)] - ampIncrementDegree;
       }
     }
-    if(state == 4){
-      turningIncrementCount--;
+  }
+
+    if(State == 5){
+      if(amplitude[SERVOS-1] - amplitudeStable[SERVOS-1] < ampLimit){
+        for(int i = 0; i < SERVOS * 2; i++) {
+          int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+          amplitude[i] = amplitude[i] - ampIncrementDegree * offset;
+        }
+      }
+
     }
     // option_Changed = true;
   }
   else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
-    for(unsigned int i = 0; i < SERVOS; i++){
-      if((amplitude[i+(leftRightControl*5)] + ampIncrementDegree) <= (amplitudeStable[i+(leftRightControl*5)] + 20)){ // Check to make sure that we are not going to increase too much above the original val
-        amplitude[i+(leftRightControl*5)] = amplitude[i+(leftRightControl*5)] + ampIncrementDegree;
+    if(State == 2){
+      for(unsigned int i = 0; i < SERVOS; i++){
+        if((amplitude[i+(left_Right_Control*5)] + ampIncrementDegree) <= (amplitudeStable[i+(left_Right_Control*5)] + 20)){ // Check to make sure that we are not going to increase too much above the original val
+          amplitude[i+(left_Right_Control*5)] = amplitude[i+(left_Right_Control*5)] + ampIncrementDegree;
+        }
       }
     }
-    if(state == 4){
-      turningIncrementCount++;
+
+    if(State == 5){
+      if(amplitude[0] - amplitudeStable[0] < ampLimit){
+        for(int i = 0; i < SERVOS * 2; i++) {
+          int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+          amplitude[i] = amplitude[i] + ampIncrementDegree * offset;
+        }
+      }
+      
     }
+
     // option_Changed = true;
   }
   else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // change the side we are decreasing/increasing the amplitude of
-    leftRightControl = leftRightControl + 1;
-    if(leftRightControl >= 2){
-      leftRightControl = 0;
+    left_Right_Control = left_Right_Control + 1;
+    if(left_Right_Control >= 2){
+      left_Right_Control = 0;
     }
   }
-  else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to currently controlled side
-    for(unsigned int i = 0; i < SERVOS; i++){
-        amplitude[i+(leftRightControl*5)] = amplitudeStable[i+(leftRightControl*5)];
+  else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to both sides
+    for(unsigned int i = 0; i < SERVOS*2; i++){
+        amplitude[i] = amplitudeStable[i];
     }
-    turningIncrementCount = 0;
   }
 
 IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
@@ -333,19 +356,40 @@ else if(state == 4){
 
     }
   }
+}
 
-  // Serial.print("turning:");
-  // Serial.println(turningLeftRight);
-  // Serial.print("angle displacement:");
-  // Serial.println(turningIncrementCount);
-  // Serial.print("stroked:");
-  // Serial.println(currentStrokeCount);
-  // for(int i = 0; i < SERVOS*2; i++){
-  //   Serial.print(amplitude[i]);
-  //   Serial.print(", ");
-  // }
-  // Serial.println("");
-  // Serial.println("------");
+// Swim with varying pitch
+else if(state == 5){
+   unsigned long currentMillis = millis(); // initiate the start time for the loop to ensure that each iteration of the code takes servoPeriodMillis seconds (here 20 ms)
+   Serial.println(amplitude[0]);
+  //  Serial.println(amplitude[4]);
+   Serial.println("------------");
+
+      if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
+        lastLoopTimeMillis = currentMillis; // reset the millis counter to keep track of the time before sending instructions for a new step
+
+
+        if(periodStepsCounter < beatPeriodSteps){
+          servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
+          if (optionChanged == true){
+            updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag); // update the counter and phase to ensure a snooth transition from the previous step with different beat period
+            optionChanged = false; // re-set the option changed variable
+          }
+
+          else{
+          // Compute the alpha angle for the next period phase while the 20ms required to move the servo elapse
+          periodStepsCounter += 1; // increase the counter by one step
+          phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
+
+          }
+          // alphaAngleDegree = alphaAngleDeg(phase); // embedded within the write servo position function
+          alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
+
+          if (periodStepsCounter == beatPeriodSteps){
+            periodStepsCounter = 0;
+          }
+        }
+      }
 }
 
 // maintain the legs vertical
