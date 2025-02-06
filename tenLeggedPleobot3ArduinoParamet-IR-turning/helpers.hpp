@@ -18,13 +18,13 @@
 #define ButtonMinus 0xF807FF00    // decrease the frequency -- Volume Minus on remote
 #define ButtonNext 0xBF40FF00     // Move to the next program (current option + 1)
 #define ButtonPrev 0xBB44FF00     // Move to the previous program (current option - 1)
-#define ButtonChMinus 0xBA45FF00  // decrease a side leg angle by 5 degrees
+#define ButtonChMinus 0xBA45FF00  // when in state 2, decrease a side leg angle by 5 degrees; when in state 4, decrease amplitude on front legs, increase amplitude on back legs
 #define ButtonCh 0xB946FF00       // Currently switch which side you are controlling the increase/decrease angle of
-#define ButtonChPlus 0xB847FF00   // increase a side leg angle by 5 degrees
+#define ButtonChPlus 0xB847FF00   // when in state 2, increase a side leg angle by 5 degrees; when in state 4, decrease amplitude on front legs, increase amplitude on back legs
 #define ButtonPlayPause 0xBC43FF00  // Currently unused
 #define ButtonEQ 0xF609FF00       // Used to reset the amplitude changes to currently controlled side
 
-int maxState = 4;
+int maxState = 5; // the highest number of state currently used
 
 // Store the servo specs
 // calibration parameters for 2nd prototype
@@ -79,11 +79,11 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       // option_Changed = true;
     }
 
-    // else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
-    //   State = 5;
-    //   resetAmplitude(amplitude_, amplitude_Stable);
-    //   // option_Changed = true;
-    // }
+    else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
+      State = 5;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
 
     else if(IrReceiver.decodedIRData.decodedRawData == ButtonMinus){ // decrease the beat period to increase the beat frequency in increments of 100 ms
       if(beat_Period_Millis >= 200 + beat_Period_Millis_Incr && beat_Period_Millis <= 3000){ // if interval is > than the minimum allowed frequency + increment: this is done so the loop does not compute an interval less than the nminimum allowable 200 ms)
@@ -361,3 +361,26 @@ void switchTurnLeftRight(float amplitude_[], float amplitude_stable[], float amp
   }
 }
 
+void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float up_amplitude_changed[], float down_amplitude_changed[], int changing_index, int pitching_Up_Down[]){
+  if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
+    amplitude_[changing_index] = up_amplitude_changed[changing_index]; // front legs decrease in amplitude, back legs increase in amplitude
+    amplitude_[changing_index + SERVOS] = up_amplitude_changed[changing_index + SERVOS]; // front legs decrease in amplitude, back legs increase in amplitude
+    pitching_Up_Down[changing_index] = 1;
+    // Serial.print("P");
+    // Serial.print(5 - changing_index);
+    // Serial.print(" PITCH UP!!!!!!!!!!!!!!!!!!!!!!!!!! ");
+    // Serial.print(amplitude_[changing_index]);
+    // Serial.print(":");
+    // Serial.println(amplitude_[changing_index + SERVOS]);
+  } else if(pitching_Up_Down[changing_index] == 1){ // update the amplitude to pitch down
+    amplitude_[changing_index] = down_amplitude_changed[changing_index]; // front legs increase in amplitude, back legs decrease in amplitude
+    amplitude_[changing_index + SERVOS] = down_amplitude_changed[changing_index + SERVOS]; // front legs increase in amplitude, back legs decrease in amplitude
+    pitching_Up_Down[changing_index] = 0;
+    // Serial.print("P");
+    // Serial.print(5 - changing_index);
+    // Serial.print(" PITCH DOWN!!!!!!!!!!!!!!!!!!!!!!!!!! ");
+    // Serial.print(amplitude_[changing_index]);
+    // Serial.print(":");
+    // Serial.println(amplitude_[changing_index + SERVOS]);
+  }
+}

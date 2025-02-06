@@ -26,14 +26,22 @@ unsigned int periodStepsCounter = 0; // counter that changes with every servo st
 
 // turning parameters
 int turningLeftRight[] = {0,0,0,0,0}; // tells which way each leg is turning; left -> 0, right -> 1; e.g. {1,1,0,0,0} P1 and P2 are turning right, P3-5 are turning left
-int currentStrokeCount[] = {0,0,0,0,0}; // how many period of strokes each leg completed, resets to 0 at turningStrokeCount; e.g. {2,2,1,1,1} P1 and P2 completed 2 cycles, P3-5 completed 1
-int turningStrokeCount = 3; // stroke count before switching the turning side 
-float amplitudeChanged[SERVOS*2]; // the amplitude of the turning side legs for yaw zigzag motion
+int yawCurrentStrokeCount[] = {0,0,0,0,0}; // how many period of strokes each leg completed, resets to 0 at turningStrokeCount; e.g. {2,2,1,1,1} P1 and P2 completed 2 cycles, P3-5 completed 1
+int yawTurningStrokeCount = 3; // stroke count before switching the turning side 
+float yawAmplitudeChanged[SERVOS*2]; // the amplitude of the turning side legs for yaw zigzag motion
+unsigned int leftRightControl = 0; // for controlling altering the amplitude of either side. Starts at 0 -> Left. Will be able to switch to 1 -> Right, with press of the CH button.
+
+// pitching parameters
+int pitchingUpDown[] = {0,0,0,0,0}; // tells which way robot is pitching; up -> 0, down -> 1; e.g. {1,1,0,0,0} P1 and P2 are pitching , P3-5 are pitching up
+int pitchCurrentStrokeCount[] = {0,0,0,0,0}; // how many period of strokes each leg completed, resets to 0 at turningStrokeCount; e.g. {2,2,1,1,1} P1 and P2 completed 2 cycles, P3-5 completed 1
+int pitchTurningStrokeCount = 3; // stroke count before switching the turning side 
+float pitchUpAmplitudeChanged[SERVOS*2]; // the amplitude when pitching up in pitch zigzag motion
+float pitchDownAmplitudeChanged[SERVOS*2]; // the amplitude when pitching down in pitch zigzag motion
+unsigned int frontBackControl = 0; // for controlling altering the amplitude of the front and back. Starts at 0 -> Front. Will be able to switch to 1 -> Back, with press of the CH button when in state 5.
+
 int beatStepPhaseBegin[SERVOS*2]; // the periodStepsCounter at which each leg can update the amplitude to the lower value
 int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
 const int ampLimit = 30; // limit of amplitude difference from the default setting in pitch control
-unsigned int leftRightControl = 0; // for controlling altering the amplitude of either side. Starts at 0 -> Left. Will be able to switch to 1 -> Right, with press of the CH button.
-unsigned int frontBackControl = 0; // for controlling altering the amplitude of the front and back. Starts at 0 -> Front. Will be able to switch to 1 -> Back, with press of the CH button when in state 5.
 
 // Switching options
 unsigned int state = 0; // condition controlling the options. Goes up with the push of a switch and resets to 0 once all the options have been cycles through
@@ -51,14 +59,20 @@ Serial.begin(9600); // Let's use the serial monitor for debugging
 // pinMode(switchPin,INPUT); // pint for the temporary switch to toggle through options
 IrReceiver.begin(switchPin, ENABLE_LED_FEEDBACK); // set up the IR receiver
 
-for(int i = 0; i < SERVOS*2; i++){
-  amplitudeChanged[i] = amplitudeStable[i] * 0.2;
+for(int i = 0; i < SERVOS*2; i++){ // turning side has 20% of amplitude compared to the leading side
+  yawAmplitudeChanged[i] = amplitudeStable[i] * 0.2;
 }
+
+for(int i = 0; i < SERVOS*2; i++){
+  int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+  pitchUpAmplitudeChanged[i] = amplitudeStable[i] + 15 * offset;
+  pitchDownAmplitudeChanged[i] = amplitudeStable[i] - 15 * offset;
+}
+
 
 for(int i = 0; i < SERVOS; i++){
   beatStepPhaseBegin[4-i] = int(floor(beatPeriodSteps*phaseLag*i));
-  beatStepPhaseBegin[9 - i] = int(floor(beatPeriodSteps*phaseLag*i));
-
+  beatStepPhaseBegin[9-i] = int(floor(beatPeriodSteps*phaseLag*i));
 }
 
 attachServos(); // initialize the servos (servo.attach)
@@ -149,10 +163,10 @@ else if(state == 3){
 
       for(int i = 0; i < SERVOS; i++){
         if(periodStepsCounter == beatStepPhaseBegin[i]){
-          currentStrokeCount[i]++;
-          if (currentStrokeCount[i] == turningStrokeCount){
-            switchTurnLeftRight(amplitude, amplitudeStable, amplitudeChanged, i, turningLeftRight);
-            currentStrokeCount[i] = 0;
+          yawCurrentStrokeCount[i]++;
+          if (yawCurrentStrokeCount[i] == yawTurningStrokeCount){
+            switchTurnLeftRight(amplitude, amplitudeStable, yawAmplitudeChanged, i, turningLeftRight);
+            yawCurrentStrokeCount[i] = 0;
           }
         }
       }
@@ -161,8 +175,8 @@ else if(state == 3){
         updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag);
       }
       else{
-      periodStepsCounter += 1; // increase the counter by one step
-      phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
+        periodStepsCounter += 1; // increase the counter by one step
+        phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
       }
       alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
 
@@ -181,12 +195,12 @@ else if(state == 4){
     if(periodStepsCounter < beatPeriodSteps){
       servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
       if (optionChanged == true){
-        updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag); // update the counter and phase to ensure a snooth transition from the previous step with different beat period
+        updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag);
         optionChanged = false; // re-set the option changed variable
       }
       else{
-      periodStepsCounter += 1; // increase the counter by one step
-      phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
+        periodStepsCounter += 1; // increase the counter by one step
+        phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
       }
       // alphaAngleDegree = alphaAngleDeg(phase); // embedded within the write servo position function
       alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
@@ -198,9 +212,39 @@ else if(state == 4){
   }
 }
 // Run the pitch zigzag program
-// else if(state == 5){
+else if(state == 5){
+  unsigned long currentMillis = millis();
+  if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
+    lastLoopTimeMillis = currentMillis; // reset the millis counter to keep track of the time before sending instructions for a new step
+    if(periodStepsCounter < beatPeriodSteps){
+      servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
+
+      for(int i = 0; i < SERVOS; i++){
+        if(periodStepsCounter == beatStepPhaseBegin[i]){
+          pitchCurrentStrokeCount[i]++;
+          if (pitchCurrentStrokeCount[i] == pitchTurningStrokeCount){
+            switchPitchUpDown(amplitude, amplitudeStable, pitchUpAmplitudeChanged, pitchDownAmplitudeChanged, i, pitchingUpDown);
+            pitchCurrentStrokeCount[i] = 0;
+          }
+        }
+      }
+      
+      if(optionChanged == true){
+        updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag);
+      }
+      else{
+      periodStepsCounter += 1; // increase the counter by one step
+      phase = phaseStart + ((float)servoPeriodMillis / beatPeriodMillis) * periodStepsCounter; // calculate the phase for the specific step within a beat; ranges from 0 to 1.
+      }
+      alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree); // embedded within the write servo position function
+
+      if (periodStepsCounter == beatPeriodSteps){
+        periodStepsCounter = 0;
+      }
+    }
+  }
   
-// }
+}
 // Reset state to servo disabled
 else{
   state = 0;
