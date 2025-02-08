@@ -21,7 +21,7 @@
 #define ButtonChMinus 0xBA45FF00  // when in state 2, decrease a side leg angle by 5 degrees; when in state 4, decrease amplitude on front legs, increase amplitude on back legs
 #define ButtonCh 0xB946FF00       // Currently switch which side you are controlling the increase/decrease angle of
 #define ButtonChPlus 0xB847FF00   // when in state 2, increase a side leg angle by 5 degrees; when in state 4, decrease amplitude on front legs, increase amplitude on back legs
-#define ButtonPlayPause 0xBC43FF00  // Currently unused
+#define ButtonPlayPause 0xBC43FF00  // reset the beat period to default value
 #define ButtonEQ 0xF609FF00       // Used to reset the amplitude changes to currently controlled side
 
 int maxState = 5; // the highest number of state currently used
@@ -34,6 +34,7 @@ unsigned int maxServoPulse[SERVOS*2] = {2350,2350,2350,2350,2350,2350,2350,2350,
 float servoAngleRange[SERVOS*2] = {155.641,156.466,153.502,158.893,159.532,155.155,157.404,157.125,158.934,154.985}; // measured physical range of the servo for the respective min and max pulse. Requires initial calibration of each servo to determine their range. ; Same order as in servoPins
 int corrFact[SERVOS*2] = {-30,45,20,45,-15,20,-30,35,-60,-40}; // correction factor after the servos are installed to align the pleopods perfectly vertically; same order as in servoPins
 const unsigned int servoUpdatePeriodMillis = 20; // 20ms = 50Hz, the default for servo actuation
+unsigned int beatPeriodMillisDefault = 1500; // default value of beat period in ms
 
 
 // Initiate servos for the left and right legs - keep left and right servos separate for now
@@ -43,143 +44,6 @@ Servo Pright[SERVOS]; // right legs
 void resetAmplitude(float amplitude_[], float amplitude_Stable[]){
   for(unsigned int i = 0; i < SERVOS*2; i++){ // Reset the amplitude changes so that the when you enter the motion program it will be default
     amplitude_[i] = amplitude_Stable[i];
-  }
-}
-
-void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude_[SERVOS*2],
-      float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, int amp_Limit){
-  if(IrReceiver.decode()){  
-    if(IrReceiver.decodedIRData.decodedRawData == Button0){ // Keep the legs horizontal
-      State = 0;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == Button1){ // Keep the legs vertical for maintenance
-      State = 1;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == Button2){ // Run the normal kinematics program
-      State = 2;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == Button3){ // Run the yaw zigzag prgram
-      State = 3;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Run the controllable pitch program
-      State = 4;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
-      State = 5;
-      resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonMinus){ // decrease the beat period to increase the beat frequency in increments of 100 ms
-      if(beat_Period_Millis >= 200 + beat_Period_Millis_Incr && beat_Period_Millis <= 3000){ // if interval is > than the minimum allowed frequency + increment: this is done so the loop does not compute an interval less than the nminimum allowable 200 ms)
-        beat_Period_Millis = beat_Period_Millis - beat_Period_Millis_Incr; // decrease the beat period
-        option_Changed = true;
-      }
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlus){ // increase the beat period to decrease the beat frequency in increments of 100 ms
-      if(beat_Period_Millis >= 200 && beat_Period_Millis <= 3000-beat_Period_Millis_Incr){
-        beat_Period_Millis = beat_Period_Millis + beat_Period_Millis_Incr;
-        option_Changed = true;
-      }
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonNext){ // Flip throught the options one by one in increasing numbers (does not include the straight legs option)    
-      if(State >= 0 && State <= maxState){
-        if (State == maxState){ // check that the state does not go beyond 2, otherwise re-set to 0 and stat a new option loop
-          State = 0;
-          resetAmplitude(amplitude_, amplitude_Stable);
-          // option_Changed = true;
-        }
-        else{
-          State+=1; // increase the value by +1 to switch between options
-          resetAmplitude(amplitude_, amplitude_Stable);
-          // option_Changed = true;
-        }
-      }
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPrev){ // Flip throught the options one by one in decreasing numbers (does not include the straight legs option)    
-      if(State >= 0 && State <= maxState){
-        if (State == 0){ // check that the state does not go below 0, otherwise re-set to 2 and start a new option loop
-          State = maxState;
-          resetAmplitude(amplitude_, amplitude_Stable);
-          // option_Changed = true;
-        }
-        else{
-          State-=1; // increase the value by +1 to switch between options
-          resetAmplitude(amplitude_, amplitude_Stable);
-          // option_Changed = true;
-        }
-      }
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
-      if(State == 2){
-        for(unsigned int i = 0; i < SERVOS; i++){
-          if((amplitude_[i+(left_Right_Control*SERVOS)] - amp_Increment_Degree) > 0){ // Check to make sure that we are not going to decrease below 0
-            amplitude_[i+(left_Right_Control*SERVOS)] = amplitude_[i+(left_Right_Control*SERVOS)] - amp_Increment_Degree;
-          }
-        }
-      }
-      else if(State == 4){
-        if(amplitude_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
-          for(int i = 0; i < SERVOS * 2; i++) {
-            int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-            amplitude_[i] = amplitude_[i] - amp_Increment_Degree * offset;
-          }
-        }
-
-      }
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
-      if(State == 2){
-        for(unsigned int i = 0; i < SERVOS; i++){
-          if((amplitude_[i+(left_Right_Control*SERVOS)] + amp_Increment_Degree) <= (amplitude_Stable[i+(left_Right_Control*SERVOS)] + 20)){ // Check to make sure that we are not going to increase too much above the original val
-            amplitude_[i+(left_Right_Control*SERVOS)] = amplitude_[i+(left_Right_Control*SERVOS)] + amp_Increment_Degree;
-          }
-        }
-      }
-      else if(State == 4){
-        if(amplitude_[0] - amplitude_Stable[0] < amp_Limit){
-          for(int i = 0; i < SERVOS * 2; i++) {
-            int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-            amplitude_[i] = amplitude_[i] + amp_Increment_Degree * offset;
-          }
-        }
-      }
-      // option_Changed = true;
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // change the side we are decreasing/increasing the amplitude of
-      left_Right_Control = left_Right_Control + 1;
-      if(left_Right_Control >= 2){
-        left_Right_Control = 0;
-      }
-    }
-
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to both sides
-      resetAmplitude(amplitude_, amplitude_Stable);
-    }
-
-  IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
   }
 }
 
@@ -382,5 +246,148 @@ void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float up_am
     // Serial.print(amplitude_[changing_index]);
     // Serial.print(":");
     // Serial.println(amplitude_[changing_index + SERVOS]);
+  }
+}
+
+void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude_[SERVOS*2],
+      float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, int amp_Limit, unsigned int &beat_Period_Steps, int servo_Period_Millis, float phase_,
+      unsigned int &period_Steps_Counter, int beat_Step_Phase_Begin[SERVOS*2], float phase_Lag){
+  if(IrReceiver.decode()){  
+    if(IrReceiver.decodedIRData.decodedRawData == Button0){ // Keep the legs horizontal
+      State = 0;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == Button1){ // Keep the legs vertical for maintenance
+      State = 1;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == Button2){ // Run the normal kinematics program
+      State = 2;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == Button3){ // Run the yaw zigzag prgram
+      State = 3;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Run the controllable pitch program
+      State = 4;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
+      State = 5;
+      resetAmplitude(amplitude_, amplitude_Stable);
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonMinus){ // decrease the beat period to increase the beat frequency in increments of 100 ms
+      if(beat_Period_Millis >= 200 + beat_Period_Millis_Incr && beat_Period_Millis <= 3000){ // if interval is > than the minimum allowed frequency + increment: this is done so the loop does not compute an interval less than the nminimum allowable 200 ms)
+        beat_Period_Millis = beat_Period_Millis - beat_Period_Millis_Incr; // decrease the beat period
+        option_Changed = true;
+      }
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlus){ // increase the beat period to decrease the beat frequency in increments of 100 ms
+      if(beat_Period_Millis >= 200 && beat_Period_Millis <= 3000-beat_Period_Millis_Incr){
+        beat_Period_Millis = beat_Period_Millis + beat_Period_Millis_Incr;
+        option_Changed = true;
+      }
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonNext){ // Flip throught the options one by one in increasing numbers (does not include the straight legs option)    
+      if(State >= 0 && State <= maxState){
+        if (State == maxState){ // check that the state does not go beyond 2, otherwise re-set to 0 and stat a new option loop
+          State = 0;
+          resetAmplitude(amplitude_, amplitude_Stable);
+          // option_Changed = true;
+        }
+        else{
+          State+=1; // increase the value by +1 to switch between options
+          resetAmplitude(amplitude_, amplitude_Stable);
+          // option_Changed = true;
+        }
+      }
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPrev){ // Flip throught the options one by one in decreasing numbers (does not include the straight legs option)    
+      if(State >= 0 && State <= maxState){
+        if (State == 0){ // check that the state does not go below 0, otherwise re-set to 2 and start a new option loop
+          State = maxState;
+          resetAmplitude(amplitude_, amplitude_Stable);
+          // option_Changed = true;
+        }
+        else{
+          State-=1; // increase the value by +1 to switch between options
+          resetAmplitude(amplitude_, amplitude_Stable);
+          // option_Changed = true;
+        }
+      }
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
+      if(State == 2){
+        for(unsigned int i = 0; i < SERVOS; i++){
+          if((amplitude_[i+(left_Right_Control*SERVOS)] - amp_Increment_Degree) > 0){ // Check to make sure that we are not going to decrease below 0
+            amplitude_[i+(left_Right_Control*SERVOS)] = amplitude_[i+(left_Right_Control*SERVOS)] - amp_Increment_Degree;
+          }
+        }
+      }
+      else if(State == 4){
+        if(amplitude_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
+          for(int i = 0; i < SERVOS * 2; i++) {
+            int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+            amplitude_[i] = amplitude_[i] - amp_Increment_Degree * offset;
+          }
+        }
+
+      }
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // decrease the amplitude of leg by ampIncrementDegree (5 for now)
+      if(State == 2){
+        for(unsigned int i = 0; i < SERVOS; i++){
+          if((amplitude_[i+(left_Right_Control*SERVOS)] + amp_Increment_Degree) <= (amplitude_Stable[i+(left_Right_Control*SERVOS)] + 20)){ // Check to make sure that we are not going to increase too much above the original val
+            amplitude_[i+(left_Right_Control*SERVOS)] = amplitude_[i+(left_Right_Control*SERVOS)] + amp_Increment_Degree;
+          }
+        }
+      }
+      else if(State == 4){
+        if(amplitude_[0] - amplitude_Stable[0] < amp_Limit){
+          for(int i = 0; i < SERVOS * 2; i++) {
+            int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+            amplitude_[i] = amplitude_[i] + amp_Increment_Degree * offset;
+          }
+        }
+      }
+      // option_Changed = true;
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // change the side we are decreasing/increasing the amplitude of
+      left_Right_Control = left_Right_Control + 1;
+      if(left_Right_Control >= 2){
+        left_Right_Control = 0;
+      }
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlayPause){ // reset the beat period to default value
+      beat_Period_Millis = beatPeriodMillisDefault;
+      updateBeatPeriod(beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag);
+    }
+
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to both sides
+      resetAmplitude(amplitude_, amplitude_Stable);
+    }
+
+  IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
   }
 }
