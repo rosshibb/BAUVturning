@@ -391,3 +391,28 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
   IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
   }
 }
+
+void updateAmplitudeAngles(int counterBinary[], int amplitude_[], int trait_){
+  for(int i = 1; i < 6; i++){
+    amplitude_[i] = 90 - counterBinary[i]*20;
+    amplitude_[i+SERVOS] = 90 - counterBinary[0]*20;
+  }
+  amplitude_[0] = 90 - trait_*15;
+}
+
+void displayTrait(int amplitude_[], int trait_, int yaw_Counter, int turning_Stroke_Count, int pitch_Counter, int period_Counter){ // displays the trait specified using legs
+  int n = 0;
+  if(trait_ == 0){
+    n = yaw_Counter;
+  } else if(trait_ == 1){
+    n = turning_Stroke_Count;
+  } else if(trait_ == 2){
+    n = pitch_Counter;
+  } else if(trait_ == 3){
+    n = period_Counter;
+  }
+
+  int nInBinary[] = convertToBinary(n);
+  
+  updateAmplitude(nInBinary, amplitude_, trait);
+}
