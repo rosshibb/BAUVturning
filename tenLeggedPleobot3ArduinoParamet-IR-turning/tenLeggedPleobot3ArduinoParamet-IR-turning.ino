@@ -43,6 +43,12 @@ int beatStepPhaseBegin[SERVOS*2]; // the periodStepsCounter at which each leg ca
 int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
 const int ampLimit = 30; // limit of amplitude difference from the default setting in pitch control
 
+// trait checker parameters
+int trait = 0;
+int yawCounter = 0;
+int pitchCounter = 0;
+int periodCounter = 0;
+
 // Switching options
 unsigned int state = 0; // condition controlling the options. Goes up with the push of a switch and resets to 0 once all the options have been cycles through
 unsigned int switchPin = 2; // pin for the options switch (may not work with the IR sensor)
