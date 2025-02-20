@@ -86,7 +86,8 @@ alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAng
 void loop() {
 // total of 5 options: 0-> default, legs in horizontal position; 1-> legs in vertical position; 2-> kinematics program; 3-> swim in yaw zigzag; 4-> swim with controllable pitch; 5-> swim with pitch zigzag (to be implemented)
 optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, ampLimit, beatPeriodSteps, 
-      servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phase, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault);
+      servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phase, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
+      pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount);
 
 // Trait Changing (Binary Look) 
 if(state == 0){
@@ -113,7 +114,7 @@ if(state == 0){
       }
       // alphaAngleDegree = alphaAngleDeg(phase); // embedded within the write servo position function
        //TODO CHANGE
-      displayTrait(trait, yawAmplitudeChanged, amplitudeStable, ampIncrementDegree, binaryArray, alphaAngleDegree, turningStrokeCount, pitchAmplitudeChanged, beatPeriodMillisIncr, beatPeriodMillis, beatPeriodMillisDefault, phase, binarySwitch, leftRightControl, yawCounterL, yawCounterR);
+      displayTrait(trait, yawAmplitudeChanged, amplitudeStable, ampIncrementDegree, binaryArray, alphaAngleDegree, turningStrokeCount, pitchAmplitudeChanged, beatPeriodMillisIncr, beatPeriodMillis, beatPeriodMillisDefault, phase, binarySwitch, leftRightControl, yawCounterL, yawCounterR, pitchCounter);
 
       if (periodStepsCounter == beatPeriodSteps){
         periodStepsCounter = 0;
@@ -176,14 +177,27 @@ else if(state == 3){
         if(periodStepsCounter == beatStepPhaseBegin[i]){
           yawCurrentStrokeCount[i]++;
           if (yawCurrentStrokeCount[i] == turningStrokeCount){
-            switchTurnLeftRight(amplitude, amplitudeStable, yawAmplitudeChanged, i, turningLeftRight);
+            switchTurnLeftRightBinaryComp(yawCounterL, yawCounterR, amplitude, amplitudeStable, yawAmplitudeChanged, i, turningLeftRight, ampIncrementDegree);
             yawCurrentStrokeCount[i] = 0;
           }
+
+          for(i = 0; i < SERVOS; i++){
+            Serial.print(beatStepPhaseBegin[i]);
+            Serial.print(",");
+          }
+
+          Serial.println("");
+
+          // Serial.print("yawCurrentStrokeCount");
+          // Serial.print(i);
+          // Serial.print(" ");
+          // Serial.println(yawCurrentStrokeCount[i]);
         }
       }
       
       if(optionChanged == true){
         updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag);
+        optionChanged = false;
       }
       else{
         periodStepsCounter += 1; // increase the counter by one step
@@ -196,6 +210,7 @@ else if(state == 3){
       }
     }
   }
+  Serial.println(beatPeriodSteps);
 }
 // Run the controllable pitch program
 else if(state == 4){
@@ -234,7 +249,9 @@ else if(state == 5){
         if(periodStepsCounter == beatStepPhaseBegin[i]){
           pitchCurrentStrokeCount[i]++;
           if (pitchCurrentStrokeCount[i] == turningStrokeCount){
-            switchPitchUpDown(amplitude, amplitudeStable, pitchAmplitudeChanged, i, pitchingUpDown);
+            // switchPitchUpDown(amplitude, amplitudeStable, pitchAmplitudeChanged, i, pitchingUpDown);
+            switchPitchUpDownBinaryComp(amplitude, amplitudeStable, pitchAmplitudeChanged, i, pitchingUpDown, pitchCounter, pitchIncrementDegree);
+
             pitchCurrentStrokeCount[i] = 0;
           }
         }
@@ -242,6 +259,7 @@ else if(state == 5){
       
       if(optionChanged == true){
         updateBeatPeriod(beatPeriodSteps, servoPeriodMillis, beatPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag);
+        optionChanged = false;
       }
       else{
       periodStepsCounter += 1; // increase the counter by one step

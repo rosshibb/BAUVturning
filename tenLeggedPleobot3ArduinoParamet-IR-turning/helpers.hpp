@@ -32,6 +32,9 @@ int binarySwitch = 1; // for switching between binary representation, either 0 o
 int yawCounterL = 0;
 int yawCounterR = 0;
 
+int pitchCounter = 0;
+int pitchIncrementDegree = 2;
+
 // Store the servo specs
 // calibration parameters for 2nd prototype
 unsigned int servoPins[SERVOS*2] = {3,5,7,9,11,4,6,8,10,12}; // pins for all the servos, sorted with the first 5 being left legs, from P1 to P5 pleopods. Equivalent to [P1L P2L P3L P4L P5L P1R P2R P3R P4R P5R]
@@ -59,11 +62,12 @@ int beat_Step_Phase_Begin[], float phase_Lag){
   period_Steps_Counter = ceil(phase_ / ((float)servo_Period_Millis / beat_Period_Millis)); // calculate the rounded-up integer value for the period step counter, relative to the counter step of the previous beat period value
   phase_ = ((float)servo_Period_Millis / beat_Period_Millis) * period_Steps_Counter;// recalculate the proper phase for the new counter
   for(int i = 0; i < SERVOS; i++){ // recalculate beatPeriodSteps at which each leg updates the amplitude in yaw control
-    beat_Step_Phase_Begin[4-i] = int(floor(beat_Period_Steps*phase_Lag*i));
-    beat_Step_Phase_Begin[9 - i] = int(floor(beat_Period_Steps*phase_Lag*i));
+    float ifloat = i;
+    float bps = beat_Period_Steps;
+    beat_Step_Phase_Begin[4-i] = int(floor(bps*phase_Lag*ifloat));
+    beat_Step_Phase_Begin[9 - i] = int(floor(bps*phase_Lag*ifloat));
   }
   Serial.println(beat_Period_Steps);
-
 }
 
 void resetEQ(int state_, int trait_, int leftRightControl_, int &yawCounterL_, int &yawCounterR_, int &turningStrokeCount_, unsigned int &beat_Period_Steps, 
@@ -277,6 +281,22 @@ void switchTurnLeftRight(float amplitude_[], float amplitude_stable[], float amp
   }
 }
 
+// switch turning left and right with binary
+void switchTurnLeftRightBinaryComp(int yawCounterL_, int yawCounterR_, float amplitude_[], float amplitude_Stable[], float amplitude_changed[], int changing_index, int turning_Left_Right[], int amp_Increment_Degree){ // the index of the amplitude array to update the amplitude
+  if(turning_Left_Right[changing_index] == 1){ // update the amplitude to turn right
+    amplitude_[changing_index] = amplitude_Stable[changing_index] + amp_Increment_Degree * yawCounterR_;
+    amplitude_[changing_index+SERVOS] = amplitude_Stable[changing_index+SERVOS] + amp_Increment_Degree * yawCounterL_;
+
+    turning_Left_Right[changing_index] = 0;
+
+  } else if(turning_Left_Right[changing_index] == 0){ // update the amplitude to turn left
+    amplitude_[changing_index] = amplitude_Stable[changing_index] + amp_Increment_Degree * yawCounterL_;
+    amplitude_[changing_index+SERVOS] = amplitude_Stable[changing_index+SERVOS] + amp_Increment_Degree * yawCounterR_;
+
+    turning_Left_Right[changing_index] = 1;
+  }
+}
+
 void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int pitching_Up_Down[]){
   if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
     amplitude_[changing_index] = amplitude_changed[changing_index]; // front legs decrease in amplitude, back legs increase in amplitude
@@ -289,10 +309,56 @@ void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float ampli
   }
 }
 
+void switchPitchUpDownBinaryComp(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int pitching_Up_Down[], int pitchCounter_, int pitchIncrementDegree_){
+  int offset = 2 - (changing_index % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+  if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
+    amplitude_[changing_index] = amplitude_stable[changing_index] + pitchIncrementDegree_ * offset * pitchCounter_;
+    amplitude_[changing_index + SERVOS] = amplitude_stable[changing_index + SERVOS] + pitchIncrementDegree_ * offset * pitchCounter_;
+    pitching_Up_Down[changing_index] = 1;
+  } else if(pitching_Up_Down[changing_index] == 1){ // update the amplitude to pitch down
+    amplitude_[changing_index] = amplitude_stable[changing_index] - pitchIncrementDegree_ * offset * pitchCounter_;  
+    amplitude_[changing_index + SERVOS] = amplitude_stable[changing_index + SERVOS] - pitchIncrementDegree_ * offset * pitchCounter_;  
+    pitching_Up_Down[changing_index] = 0;
+  }
+}
+
+void setupState(int state_, float amplitude_[], float amplitude_Stable[], int amp_Increment_Degree, int yawCounterL_, int yawCounterR_, int pitchIncrementDegree_, int pitchCounter_,
+  unsigned long &lastLoopTimeMillis_, unsigned int &beat_Period_Steps, const unsigned int servo_Period_Millis, unsigned int beat_Period_Millis, float &phase_, unsigned int &period_Steps_Counter,
+  int beat_Step_Phase_Begin[], float phase_Lag, int yawCurrentStrokeCount_[], int pitchCurrentStrokeCount_[]){
+    
+  unsigned long currentMillis_ = millis();
+  phase_ = 0;
+  lastLoopTimeMillis_ = currentMillis_;
+  updateBeatPeriod(beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag);
+  if(state_ == 2 || state_ == 3){
+    for(unsigned int i = 0; i < SERVOS; i++){
+      amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
+    }
+    for(unsigned int i = 0; i < SERVOS; i++){
+      amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
+    }
+  }
+  else if(state_ == 4 || state_ == 5){
+    for(int i = 0; i < SERVOS * 2; i++) {
+      int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+      amplitude_[i] = amplitude_Stable[i] + pitchIncrementDegree_ * offset * pitchCounter_;
+    }
+
+  }
+
+  if(state_ == 3){
+    for(int i = 0; i < SERVOS; i++){
+      yawCurrentStrokeCount_[i] = 0;
+      pitchCurrentStrokeCount_[i] = 0;
+    }
+  }
+}
+
 void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude_[SERVOS*2],
       float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, int amp_Limit, unsigned int &beat_Period_Steps, int servo_Period_Millis, float phase_,
       unsigned int &period_Steps_Counter, int beat_Step_Phase_Begin[SERVOS*2], float phase_Lag, int &trait_, int &turningStrokeCount_, float yawAmplitudeChanged_[], int &binarySwitch_,
-      int &yawCounterL_, int &yawCounterR_, int beatPeriodMillisDefault_){
+      int &yawCounterL_, int &yawCounterR_, int beatPeriodMillisDefault_, int &pitchCounter_, int pitchIncrementDegree_, unsigned long &lastLoopTimeMillis_,
+      int yawCurrentStrokeCount_[], int pitchCurrentStrokeCount_[]){
   if(IrReceiver.decode()){  
     if(IrReceiver.decodedIRData.decodedRawData == Button0){ // Keep the legs horizontal
       State = 0;
@@ -384,15 +450,13 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
           Serial.print("turning stroke count : ");
           Serial.println(turningStrokeCount_);
         }
-      // }else if(trait_ == 2){ // pitch amplitude offset
-      //   if(pitchAmplitudeChanged_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
-      //     for(int i = 0; i < SERVOS * 2; i++) {
-      //       int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-      //       pitchAmplitudeChanged_[i] = pitchAmplitudeChanged_[i] - amp_Increment_Degree * offset;
-      //     }
-      //   }
-      //   Serial.print("pitch amplitude offset : ");
-      //   Serial.println(yawAmplitudeChanged_[0]);
+      }else if(trait_ == 2){ // pitch amplitude offset
+        if(pitchCounter_ > -15){
+          pitchCounter_--;
+        }
+        // for(int i = 0; i < SERVOS; i++){
+        //  
+        // }
       }else if(trait_ == 3){ // update period
         if(beat_Period_Millis >= 200 + beat_Period_Millis_Incr && beat_Period_Millis <= 3000){ // if interval is > than the minimum allowed frequency + increment: this is done so the loop does not compute an interval less than the nminimum allowable 200 ms)
           beat_Period_Millis = beat_Period_Millis - beat_Period_Millis_Incr; // decrease the beat period
@@ -442,16 +506,14 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
           Serial.print("turning stroke count : ");
           Serial.println(turningStrokeCount_);
         }
-      // }else if(trait_ == 2){ // pitch amplitude offset
-      //   if(pitchAmplitudeChanged_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
-      //     for(int i = 0; i < SERVOS * 2; i++) {
-      //       int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-      //       pitchAmplitudeChanged_[i] = pitchAmplitudeChanged_[i] + amp_Increment_Degree * offset;
-      //     }
-      //   }
+      }else if(trait_ == 2){ // pitch amplitude offset
+        if(pitchCounter_ < 15){
+          pitchCounter_++;
+        }
         Serial.print("pitch amplitude offset : ");
         Serial.println(yawAmplitudeChanged_[0]);
-      }else if(trait_ == 3){ // update period
+      }
+      else if(trait_ == 3){ // update period
         if(beat_Period_Millis >= 200 && beat_Period_Millis <= 3000-beat_Period_Millis_Incr){ // if interval is > than the minimum allowed frequency + increment: this is done so the loop does not compute an interval less than the nminimum allowable 200 ms)
           beat_Period_Millis = beat_Period_Millis + beat_Period_Millis_Incr; // increase the beat period
           option_Changed = true;
@@ -484,15 +546,17 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
           // option_Changed = true;
         }
       }
-      if(State == 2){
-        for(unsigned int i = 0; i < SERVOS; i++){
-            amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
-          }
-        for(unsigned int i = 0; i < SERVOS; i++){
-            amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
-        }
-      }
-            Serial.print("state : ");
+      setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
+      beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_);
+      // if(State == 2){
+      //   for(unsigned int i = 0; i < SERVOS; i++){
+      //       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
+      //     }
+      //   for(unsigned int i = 0; i < SERVOS; i++){
+      //       amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
+      //   }
+      // }
+      Serial.print("state : ");
       Serial.println(State);
     }
 
@@ -509,15 +573,18 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
           // option_Changed = true;
         }
       }
-      if(State == 2){
-        for(unsigned int i = 0; i < SERVOS; i++){
-            amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
-          }
-        for(unsigned int i = 0; i < SERVOS; i++){
-            amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
-          }
-      }
-            Serial.print("state : ");
+      setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
+      beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_);
+
+      // if(State == 2){
+      //   for(unsigned int i = 0; i < SERVOS; i++){
+      //       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
+      //     }
+      //   for(unsigned int i = 0; i < SERVOS; i++){
+      //       amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
+      //     }
+      // }
+      Serial.print("state : ");
       Serial.println(State);
     }
 
@@ -550,12 +617,19 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         }
       }
       else if(State == 4){
-        if(amplitude_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
+        // if(amplitude_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
+        //   for(int i = 0; i < SERVOS * 2; i++) {
+        //     int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+        //     amplitude_[i] = amplitude_[i] - amp_Increment_Degree * offset;
+        //   }
+        // }
+        if(pitchCounter_ > -15){
+          pitchCounter_--;
+        }
           for(int i = 0; i < SERVOS * 2; i++) {
             int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-            amplitude_[i] = amplitude_[i] - amp_Increment_Degree * offset;
+            amplitude_[i] = amplitude_Stable[i] + pitchIncrementDegree_ * offset * pitchCounter_;
           }
-        }
 
       }
     }
@@ -589,12 +663,19 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         }
         }
         else if(State == 4){
-          if(amplitude_[0] - amplitude_Stable[0] < amp_Limit){
+          // if(amplitude_[0] - amplitude_Stable[0] < amp_Limit){
+          //   for(int i = 0; i < SERVOS * 2; i++) {
+          //     int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+          //     amplitude_[i] = amplitude_[i] + amp_Increment_Degree * offset;
+          
+            // }
+            if(pitchCounter_ < 15){
+              pitchCounter_++;
+            }
             for(int i = 0; i < SERVOS * 2; i++) {
               int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-              amplitude_[i] = amplitude_[i] + amp_Increment_Degree * offset;
+              amplitude_[i] = amplitude_Stable[i] + pitchIncrementDegree_ * offset * pitchCounter_;
             }
-          }
         }
     }
 
@@ -733,11 +814,9 @@ void updateAmplitudeAnglesDynamic(int counterBinary[], float amplitude_[], int t
   }
 }
 
-
-
 void displayTrait(int trait_, float yawAmplitudeChanged_[], float amplitudeStable_[], int ampIncrementDegree_, int binaryArray_[], float amplitude_[], int turningStrokeCount_,
       float pitchAmplitudeChanged_[], int beatPeriodMillisIncr_, int beatPeriodMillis_, int beatPeriodMillisDefault_, float phase_, int binarySwitch_, int leftRightControl_,
-      int &yawCounterL_, int &yawCounterR_){
+      int &yawCounterL_, int &yawCounterR_, int pitchCounter_){
   int n;
 
   if(trait_ == 0){
@@ -749,7 +828,8 @@ void displayTrait(int trait_, float yawAmplitudeChanged_[], float amplitudeStabl
   }else if(trait_ == 1){
     n = turningStrokeCount_;
   }else if(trait_ == 2){
-    n = (pitchAmplitudeChanged_[0]- amplitudeStable_[0])/ampIncrementDegree_;
+    // n = (pitchAmplitudeChanged_[0]- amplitudeStable_[0])/ampIncrementDegree_;
+    n = pitchCounter_;
   }else if(trait_ == 3){
     n = (beatPeriodMillis_ - beatPeriodMillisDefault_)/beatPeriodMillisIncr_;
   }
