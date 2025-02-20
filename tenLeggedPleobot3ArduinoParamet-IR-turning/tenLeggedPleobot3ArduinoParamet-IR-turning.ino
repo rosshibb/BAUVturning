@@ -16,7 +16,7 @@ float minAlpha[SERVOS*2] = {18.7606, 19.3838, 21.9856, 25.8914, 32.5847, 18.7606
 float tempAsym[SERVOS*2] = {0.5370, 0.4905, 0.5272, 0.5000, 0.4545, 0.5370, 0.4905, 0.5272, 0.5000, 0.4545}; // temporal asymmetry in t/T; same order as in servoPins
 float dPS[SERVOS*2] = {0.7500, 0.7989, 0.7675, 0.8142, 0.9899, 0.7500, 0.7989, 0.7675, 0.8142, 0.9899}; // shape of the power stroke - ascending cuve; same order as in servoPins
 float dRS[SERVOS*2] = {0.7500, 0.7690, 0.8312, 0.9028, 1.0051, 0.7500, 0.7690, 0.8312, 0.9028, 1.0051}; // shape of the recovery stroke - descending curve; same order as in servoPins
-float phaseLag = 0.18; // interpleopod phase lag. Assumes that the lag between the legs is the same Pn--Pn-1 is the same
+const float phaseLag = 0.18; // interpleopod phase lag. Assumes that the lag between the legs is the same Pn--Pn-1 is the same
 
 // Servo motions parameters
 unsigned long lastLoopTimeMillis; // used to compute the duration of each loop and ensure thatit last 20ms (see servoPeriodMillis)
@@ -86,7 +86,7 @@ alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAng
 void loop() {
 // total of 5 options: 0-> default, legs in horizontal position; 1-> legs in vertical position; 2-> kinematics program; 3-> swim in yaw zigzag; 4-> swim with controllable pitch; 5-> swim with pitch zigzag (to be implemented)
 optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, ampLimit, beatPeriodSteps, 
-      servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phase, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
+      servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
       pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount);
 
 // Trait Changing (Binary Look) 

@@ -329,7 +329,13 @@ void setupState(int state_, float amplitude_[], float amplitude_Stable[], int am
   unsigned long currentMillis_ = millis();
   phase_ = 0;
   lastLoopTimeMillis_ = currentMillis_;
+      Serial.print("phase lag before : ");
+  Serial.println(phase_Lag);
   updateBeatPeriod(beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag);
+  Serial.print("beat period steps : ");
+  Serial.println(beat_Period_Steps);
+    Serial.print("phase lag after : ");
+  Serial.println(phase_Lag);
   if(state_ == 2 || state_ == 3){
     for(unsigned int i = 0; i < SERVOS; i++){
       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
