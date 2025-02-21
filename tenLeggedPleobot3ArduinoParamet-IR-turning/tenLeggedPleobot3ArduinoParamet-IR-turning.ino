@@ -87,7 +87,7 @@ void loop() {
 // total of 5 options: 0-> default, legs in horizontal position; 1-> legs in vertical position; 2-> kinematics program; 3-> swim in yaw zigzag; 4-> swim with controllable pitch; 5-> swim with pitch zigzag (to be implemented)
 optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, ampLimit, beatPeriodSteps, 
       servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
-      pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount);
+      pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount, turningLeftRight, pitchingUpDown);
 
 // Trait Changing (Binary Look) 
 if(state == 0){
@@ -176,9 +176,16 @@ else if(state == 3){
       for(int i = 0; i < SERVOS; i++){
         if(periodStepsCounter == beatStepPhaseBegin[i]){
           yawCurrentStrokeCount[i]++;
+          Serial.print("yawCurrentStrokeCount");
+          Serial.print(i);
+          Serial.print(" : ");
+
+          Serial.println(yawCurrentStrokeCount[i]);
+          
           if (yawCurrentStrokeCount[i] == turningStrokeCount){
             switchTurnLeftRightBinaryComp(yawCounterL, yawCounterR, amplitude, amplitudeStable, yawAmplitudeChanged, i, turningLeftRight, ampIncrementDegree);
             yawCurrentStrokeCount[i] = 0;
+
           }
 
           for(i = 0; i < SERVOS; i++){
@@ -186,7 +193,7 @@ else if(state == 3){
             Serial.print(",");
           }
 
-          Serial.println("");
+          // Serial.println("");
 
           // Serial.print("yawCurrentStrokeCount");
           // Serial.print(i);
@@ -209,8 +216,9 @@ else if(state == 3){
         periodStepsCounter = 0;
       }
     }
+
   }
-  Serial.println(beatPeriodSteps);
+  // Serial.println(beatPeriodSteps);
 }
 // Run the controllable pitch program
 else if(state == 4){
@@ -254,6 +262,11 @@ else if(state == 5){
 
             pitchCurrentStrokeCount[i] = 0;
           }
+          for(i = 0; i < SERVOS; i++){
+            // Serial.print(beatStepPhaseBegin[i]);
+            // Serial.print(",");
+          }
+
         }
       }
       
