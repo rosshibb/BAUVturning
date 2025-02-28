@@ -61,7 +61,6 @@ Serial.begin(9600); // Let's use the serial monitor for debugging
 // pinMode(switchPin,INPUT); // pint for the temporary switch to toggle through options
 IrReceiver.begin(switchPin, ENABLE_LED_FEEDBACK); // set up the IR receiver
 
-
 for(int i = 0; i < SERVOS*2; i++){ // turning side has 20% of amplitude compared to the leading side
   yawAmplitudeChanged[i] = amplitudeStable[i];
 }
@@ -75,21 +74,19 @@ for(int i = 0; i < SERVOS; i++){
   beatStepPhaseBegin[4-i] = int(floor(beatPeriodSteps*phaseLag*i));
   beatStepPhaseBegin[9-i] = int(floor(beatPeriodSteps*phaseLag*i));
 }
-
 attachServos(); // initialize the servos (servo.attach)
 initializeMotion(lastLoopTimeMillis,phaseStart,phase); // initialize the motion of the legs (set phase = 0, enable the motors)
 // lastLoopTimeMillis = 0;
 alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAngleDegree);// initialize the first alpha degree point);// initialize the first alpha degree point
 }
 
-
 void loop() {
-// total of 5 options: 0-> default, legs in horizontal position; 1-> legs in vertical position; 2-> kinematics program; 3-> swim in yaw zigzag; 4-> swim with controllable pitch; 5-> swim with pitch zigzag (to be implemented)
+// continuously look for changes in state and trait
 optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, ampLimit, beatPeriodSteps, 
       servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
       pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount, turningLeftRight, pitchingUpDown);
 
-// Trait Changing (Binary Look) 
+// trait inspector, check specified trait; first digit of binaryArray specifies the sign, 4 following digits the number in binary
 if(state == 0){
   unsigned long currentMillis = millis(); // initiate the start time for the loop to ensure that each iteration of the code takes servoPeriodMillis seconds (here 20 ms)
   if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
@@ -128,12 +125,11 @@ else if(state == 1){
   float tempAlphaHoriz = 90; // angle in degrees that each leg is stored at for vertical
   float alphaHorizAngleDegree[SERVOS*2] = {tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz, tempAlphaHoriz};
   servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaHorizAngleDegree);
-  // Serial.println(state);
   for(unsigned int i = 0; i < SERVOS*2; i++){ // Reset the amplitude changes so that the when you enter the motion program it will be default
     amplitude[i] = amplitudeStable[i];
   }
 }
-// Run the normal kinematics program
+// Run the kinematics program with controllable yaw
 else if(state == 2){
  unsigned long currentMillis = millis(); // initiate the start time for the loop to ensure that each iteration of the code takes servoPeriodMillis seconds (here 20 ms)
   if(currentMillis - lastLoopTimeMillis >= servoPeriodMillis){
@@ -175,30 +171,11 @@ else if(state == 3){
 
       for(int i = 0; i < SERVOS; i++){
         if(periodStepsCounter == beatStepPhaseBegin[i]){
-          yawCurrentStrokeCount[i]++;
-          Serial.print("yawCurrentStrokeCount");
-          Serial.print(i);
-          Serial.print(" : ");
-
-          Serial.println(yawCurrentStrokeCount[i]);
-          
-          if (yawCurrentStrokeCount[i] == turningStrokeCount){
+          yawCurrentStrokeCount[i]++;          
+          if (yawCurrentStrokeCount[i] == turningStrokeCount){ // when the specified leg hits the max stroke count, switch the left and right amplitude
             switchTurnLeftRightBinaryComp(yawCounterL, yawCounterR, amplitude, amplitudeStable, yawAmplitudeChanged, i, turningLeftRight, ampIncrementDegree);
             yawCurrentStrokeCount[i] = 0;
-
           }
-
-          for(i = 0; i < SERVOS; i++){
-            Serial.print(beatStepPhaseBegin[i]);
-            Serial.print(",");
-          }
-
-          // Serial.println("");
-
-          // Serial.print("yawCurrentStrokeCount");
-          // Serial.print(i);
-          // Serial.print(" ");
-          // Serial.println(yawCurrentStrokeCount[i]);
         }
       }
       
@@ -218,7 +195,6 @@ else if(state == 3){
     }
 
   }
-  // Serial.println(beatPeriodSteps);
 }
 // Run the controllable pitch program
 else if(state == 4){
@@ -254,7 +230,7 @@ else if(state == 5){
       servoPosMicro = writeServoPosition(pulleyRatio, minServoPulse, maxServoPulse, servoAngleRange, corrFact, alphaAngleDegree);
 
       for(int i = 0; i < SERVOS; i++){
-        if(periodStepsCounter == beatStepPhaseBegin[i]){
+        if(periodStepsCounter == beatStepPhaseBegin[i]){// when the specified leg pair hits the max stroke count, switch the up and down amplitude, symmetric about the middle
           pitchCurrentStrokeCount[i]++;
           if (pitchCurrentStrokeCount[i] == turningStrokeCount){
             // switchPitchUpDown(amplitude, amplitudeStable, pitchAmplitudeChanged, i, pitchingUpDown);
@@ -262,11 +238,6 @@ else if(state == 5){
 
             pitchCurrentStrokeCount[i] = 0;
           }
-          for(i = 0; i < SERVOS; i++){
-            // Serial.print(beatStepPhaseBegin[i]);
-            // Serial.print(",");
-          }
-
         }
       }
       
@@ -299,9 +270,6 @@ else if(state == 6){
     amplitude[i] = amplitudeStable[i];
   }
 }
-// Check specified trait; first digit of binaryArray specifies the sign, 4 following digits the number in binary
-
-
 // Reset state to servo disabled
 else{
   state = 0;

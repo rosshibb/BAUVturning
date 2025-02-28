@@ -44,7 +44,6 @@ int corrFact[SERVOS*2] = {-30,45,20,45,-15,20,-30,35,-60,-40}; // correction fac
 const unsigned int servoUpdatePeriodMillis = 20; // 20ms = 50Hz, the default for servo actuation
 unsigned int beatPeriodMillisDefault = 1500; // default value of beat period in ms
 
-
 // Initiate servos for the left and right legs - keep left and right servos separate for now
 Servo Pleft[SERVOS]; // left legs
 Servo Pright[SERVOS]; // right legs
@@ -69,6 +68,7 @@ int beat_Step_Phase_Begin[], float phase_Lag){
   // Serial.println(beat_Period_Steps);
 }
 
+// state 0: reset specified trait when EQ is pressed; state 2-5: reset beat period when EQ is pressed
 void resetEQ(int state_, int trait_, int leftRightControl_, int &yawCounterL_, int &yawCounterR_, int &turningStrokeCount_, unsigned int &beat_Period_Steps, 
       const unsigned int servo_Period_Millis, unsigned int &beat_Period_Millis, int beatPeriodMillisDefault_, float &phase_, unsigned int &period_Steps_Counter,
       int beat_Step_Phase_Begin[], float phase_Lag, float amplitude_[], float amplitudeStable_[], int ampIncrementDegree_, int &pitchCounter_, int pitchIncrementDegree_){
@@ -271,26 +271,26 @@ void alphaAngleDeg(float phase_, float amplitude_[], float min_Alpha[], float te
 
 //-------------------------------------------------------------------------------------------------------------------
 // functions used for yaw control
-void switchTurnLeftRight(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int turning_Left_Right[]){ // the index of the amplitude array to update the amplitude
-  if(turning_Left_Right[changing_index] == 1){ // update the amplitude to turn right
-    amplitude_[changing_index] = amplitude_stable[changing_index]; // left leg goes back to default amplitude
-    amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index + SERVOS]; // right leg goes to an updated amplitude
-    turning_Left_Right[changing_index] = 0;
-    // Serial.print("P");
-    // Serial.print(5 - changing_index);
-    // Serial.println(" SWITCH TO RIGHT!!!!!!!!!!!!!!!!!!!!!!!!!!");
-  } else if(turning_Left_Right[changing_index] == 0){ // update the amplitude to turn left
-    amplitude_[changing_index] = amplitude_changed[changing_index]; // left leg goes to an updated amplitude
-    amplitude_[changing_index + SERVOS] = amplitude_stable[changing_index + SERVOS]; // right goes back to default amplitude
-    turning_Left_Right[changing_index] = 1;
-    // Serial.print("P");
-    // Serial.print(5 - changing_index);
-    // Serial.println(" SWITCH TO LEFT!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-  }
-}
-
+// switch turning left and right [CURRENTLY NOT USED]
+// void switchTurnLeftRight(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int turning_Left_Right[]){
+//   if(turning_Left_Right[changing_index] == 1){ // update the amplitude to turn right
+//     amplitude_[changing_index] = amplitude_stable[changing_index]; // left leg goes back to default amplitude
+//     amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index + SERVOS]; // right leg goes to an updated amplitude
+//     turning_Left_Right[changing_index] = 0;
+//     // Serial.print("P");
+//     // Serial.print(5 - changing_index);
+//     // Serial.println(" SWITCH TO RIGHT!!!!!!!!!!!!!!!!!!!!!!!!!!");
+//   } else if(turning_Left_Right[changing_index] == 0){ // update the amplitude to turn left
+//     amplitude_[changing_index] = amplitude_changed[changing_index]; // left leg goes to an updated amplitude
+//     amplitude_[changing_index + SERVOS] = amplitude_stable[changing_index + SERVOS]; // right goes back to default amplitude
+//     turning_Left_Right[changing_index] = 1;
+//     // Serial.print("P");
+//     // Serial.print(5 - changing_index);
+//     // Serial.println(" SWITCH TO LEFT!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+//   }
+// }
 // switch turning left and right with binary
-void switchTurnLeftRightBinaryComp(int yawCounterL_, int yawCounterR_, float amplitude_[], float amplitude_Stable[], float amplitude_changed[], int changing_index, int turning_Left_Right[], int amp_Increment_Degree){ // the index of the amplitude array to update the amplitude
+void switchTurnLeftRightBinaryComp(int yawCounterL_, int yawCounterR_, float amplitude_[], float amplitude_Stable[], float amplitude_changed[], int changing_index, int turning_Left_Right[], int amp_Increment_Degree){
   if(turning_Left_Right[changing_index] == 1){ // update the amplitude to turn right
     amplitude_[changing_index] = amplitude_Stable[changing_index] + amp_Increment_Degree * yawCounterR_;
     amplitude_[changing_index+SERVOS] = amplitude_Stable[changing_index+SERVOS] + amp_Increment_Degree * yawCounterL_;
@@ -304,19 +304,19 @@ void switchTurnLeftRightBinaryComp(int yawCounterL_, int yawCounterR_, float amp
     turning_Left_Right[changing_index] = 1;
   }
 }
-
-void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int pitching_Up_Down[]){
-  if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
-    amplitude_[changing_index] = amplitude_changed[changing_index]; // front legs decrease in amplitude, back legs increase in amplitude
-    amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index + SERVOS]; // front legs decrease in amplitude, back legs increase in amplitude
-    pitching_Up_Down[changing_index] = 1;
-  } else if(pitching_Up_Down[changing_index] == 1){ // update the amplitude to pitch down
-    amplitude_[changing_index] = amplitude_changed[changing_index + SERVOS]; // front legs increase in amplitude, back legs decrease in amplitude
-    amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index]; // front legs increase in amplitude, back legs decrease in amplitude
-    pitching_Up_Down[changing_index] = 0;
-  }
-}
-
+// switch pitching up and down [CURRENTLY NOT USED]
+// void switchPitchUpDown(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int pitching_Up_Down[]){
+//   if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
+//     amplitude_[changing_index] = amplitude_changed[changing_index]; // front legs decrease in amplitude, back legs increase in amplitude
+//     amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index + SERVOS]; // front legs decrease in amplitude, back legs increase in amplitude
+//     pitching_Up_Down[changing_index] = 1;
+//   } else if(pitching_Up_Down[changing_index] == 1){ // update the amplitude to pitch down
+//     amplitude_[changing_index] = amplitude_changed[changing_index + SERVOS]; // front legs increase in amplitude, back legs decrease in amplitude
+//     amplitude_[changing_index + SERVOS] = amplitude_changed[changing_index]; // front legs increase in amplitude, back legs decrease in amplitude
+//     pitching_Up_Down[changing_index] = 0;
+//   }
+// }
+// switch pitching up and down
 void switchPitchUpDownBinaryComp(float amplitude_[], float amplitude_stable[], float amplitude_changed[], int changing_index, int pitching_Up_Down[], int pitchCounter_, int pitchIncrementDegree_){
   int offset = 2 - (changing_index % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
   if(pitching_Up_Down[changing_index] == 0){ // update the amplitude to pitch up
@@ -329,7 +329,7 @@ void switchPitchUpDownBinaryComp(float amplitude_[], float amplitude_stable[], f
     pitching_Up_Down[changing_index] = 0;
   }
 }
-
+// update the traits according to their respective counters when entering a state
 void setupState(int state_, float amplitude_[], float amplitude_Stable[], int amp_Increment_Degree, int yawCounterL_, int yawCounterR_, int pitchIncrementDegree_, int pitchCounter_,
   unsigned long &lastLoopTimeMillis_, unsigned int &beat_Period_Steps, const unsigned int servo_Period_Millis, unsigned int beat_Period_Millis, float &phase_, unsigned int &period_Steps_Counter,
   int beat_Step_Phase_Begin[], float phase_Lag, int yawCurrentStrokeCount_[], int pitchCurrentStrokeCount_[], int turningLeftRight_[], int pitchingUpDown_[]){
@@ -371,17 +371,16 @@ void setupState(int state_, float amplitude_[], float amplitude_Stable[], int am
     pitchCurrentStrokeCount_[4] = 1;
   }
 }
-
+// control with IR remote
 void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude_[SERVOS*2],
       float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, int amp_Limit, unsigned int &beat_Period_Steps, int servo_Period_Millis, float phase_,
       unsigned int &period_Steps_Counter, int beat_Step_Phase_Begin[SERVOS*2], float phase_Lag, int &trait_, int &turningStrokeCount_, float yawAmplitudeChanged_[], int &binarySwitch_,
       int &yawCounterL_, int &yawCounterR_, int beatPeriodMillisDefault_, int &pitchCounter_, int pitchIncrementDegree_, unsigned long &lastLoopTimeMillis_,
       int yawCurrentStrokeCount_[], int pitchCurrentStrokeCount_[], int turningLeftRight_[], int pitchingUpDown_[]){
   if(IrReceiver.decode()){  
-    if(IrReceiver.decodedIRData.decodedRawData == Button0){ // Keep the legs horizontal
+    if(IrReceiver.decodedIRData.decodedRawData == Button0){ // trait inspector; 0-> yaw offset angle, 1-> zigzag number, 2-> pitch offset angle, 3-> period
       State = 0;
       resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
       Serial.print("state : ");
       Serial.println(State);
     }
@@ -389,69 +388,56 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
     else if(IrReceiver.decodedIRData.decodedRawData == Button1){ // Keep the legs vertical for maintenance
       State = 1;
       resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
-            Serial.print("state : ");
+      Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == Button2){ // Run the normal kinematics program
+    else if(IrReceiver.decodedIRData.decodedRawData == Button2){ // Run the kinematics program with controllable yaw
       State = 2;
       resetAmplitude(amplitude_, amplitude_Stable);
-      // for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
-      //     }
-      // for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
-      //     }
-      // option_Changed = true;
-            Serial.print("state : ");
-      Serial.println(State);
-
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
+      Serial.print("state : ");
+      Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == Button3){ // Run the yaw zigzag prgram
+    else if(IrReceiver.decodedIRData.decodedRawData == Button3){ // Run the yaw zigzag program
       State = 3;
       resetAmplitude(amplitude_, amplitude_Stable);
-      // option_Changed = true;
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-            Serial.print("state : ");
+      Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Run the controllable pitch program
+    else if(IrReceiver.decodedIRData.decodedRawData == Button4){ // Run the kinematics program with controllable pitch
       State = 4;
       resetAmplitude(amplitude_, amplitude_Stable);
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-      // option_Changed = true;
-            Serial.print("state : ");
+      Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Pitch controllable state
+    else if(IrReceiver.decodedIRData.decodedRawData == Button5){ // Run the pitch zigzag program
       State = 5;
       resetAmplitude(amplitude_, amplitude_Stable);
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-      // option_Changed = true;
-            Serial.print("state : ");
+      Serial.print("state : ");
       Serial.println(State);
     }
-    else if(IrReceiver.decodedIRData.decodedRawData == Button6){
+    else if(IrReceiver.decodedIRData.decodedRawData == Button6){ // keep the legs horizontal for transportation
       State = 6;
       resetAmplitude(amplitude_, amplitude_Stable);
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-      // option_Changed = true;
-            Serial.print("state : ");
+      Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonMinus){ // decrease the trait specified
-    if (State ==0){
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonMinus){ // state 0: decrease the specified trait; states 2-5: decrease the period
+    if (State == 0){
       if(trait_ == 0){
         if(left_Right_Control == 0){ // Left
           if(yawCounterL_ > -15){
@@ -505,7 +491,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
     }
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlus){ // increase the value of the trait specified
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlus){ // state 0: increase the specified trait; states 2-5: increase the period
     if (State == 0){
       if(trait_ == 0){
         if(left_Right_Control == 0){ // Left
@@ -562,7 +548,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
 
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonNext){ // Flip throught the options one by one in increasing numbers (does not include the straight legs option)    
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonNext){ // Flip throught the options one by one in increasing numbers   
       if(State >= 0 && State <= maxState){
         if (State == maxState){ // check that the state does not go beyond 2, otherwise re-set to 0 and stat a new option loop
           State = 0;
@@ -577,19 +563,11 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       }
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-      // if(State == 2){
-      //   for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
-      //     }
-      //   for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
-      //   }
-      // }
       Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPrev){ // Flip throught the options one by one in decreasing numbers (does not include the straight legs option)    
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPrev){ // Flip throught the options one by one in decreasing numbers 
       if(State >= 0 && State <= maxState){
         if (State == 0){ // check that the state does not go below 0, otherwise re-set to 2 and start a new option loop
           State = maxState;
@@ -604,20 +582,11 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       }
       setupState(State, amplitude_, amplitude_Stable, amp_Increment_Degree, yawCounterL_, yawCounterR_, pitchIncrementDegree_, pitchCounter_, lastLoopTimeMillis_,
       beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, yawCurrentStrokeCount_, pitchCurrentStrokeCount_, turningLeftRight_, pitchingUpDown_);
-
-      // if(State == 2){
-      //   for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(0*SERVOS)] = amplitude_Stable[i+(0*SERVOS)] + (amp_Increment_Degree * yawCounterL_); // calculate the amplitude based on counters
-      //     }
-      //   for(unsigned int i = 0; i < SERVOS; i++){
-      //       amplitude_[i+(1*SERVOS)] = amplitude_Stable[i+(1*SERVOS)] + (amp_Increment_Degree * yawCounterR_); // calculate the amplitude based on counters
-      //     }
-      // }
       Serial.print("state : ");
       Serial.println(State);
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // switch to prev trait
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChMinus){ // state 0: move to the previous trait; state 2: decrease the amplitude of specified side; state 4: decrease the amplitude of front legs (subsequently increasing the amplitude of back legs)
       if (State == 0){
         trait_--;
         if(trait_ < 0){
@@ -646,12 +615,6 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         }
       }
       else if(State == 4){
-        // if(amplitude_[SERVOS-1] - amplitude_Stable[SERVOS-1] < amp_Limit){
-        //   for(int i = 0; i < SERVOS * 2; i++) {
-        //     int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-        //     amplitude_[i] = amplitude_[i] - amp_Increment_Degree * offset;
-        //   }
-        // }
         if(pitchCounter_ > -12){
           pitchCounter_--;
         }
@@ -663,7 +626,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
       }
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // switch to next trait
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonChPlus){ // state 0: move to the next trait; state 2: increase the amplitude of specified side; state 4: increase the amplitude of front legs (subsequently increasing the amplitude of back legs)
       if (State == 0){
         trait_++;
         if(trait_ > 3){
@@ -708,7 +671,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         }
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // switch to next binary representation
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonCh){ // state 0&2: switch the side of legs' amplitude to control;
       if (State == 2 || State == 0){
         left_Right_Control = left_Right_Control + 1;
       if(left_Right_Control >= 2){
@@ -717,7 +680,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
     }
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlayPause){ // reset the beat period to default value
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonPlayPause){ // switch to next binary representation
       if (State == 0){
         if (binarySwitch_ == 0){
           binarySwitch_ = 1;
@@ -725,14 +688,10 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         else if (binarySwitch_ == 1){
           binarySwitch_ = 0;
         }
-      // Serial.print("binarySwitch : ");
-      // Serial.println(binarySwitch_);
-    }
-      // beat_Period_Millis = beatPeriodMillisDefault;
-      // updateBeatPeriod(beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag);
+      }
     }
 
-    else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // Reset the amplitude changes to both sides
+    else if(IrReceiver.decodedIRData.decodedRawData == ButtonEQ){ // state 0: reset the specified trait to default; states 2-5: reset the period to default
       // resetAmplitude(amplitude_, amplitude_Stable);
       resetEQ(State, trait_, left_Right_Control, yawCounterL_, yawCounterR_, turningStrokeCount_, beat_Period_Steps, servo_Period_Millis, beat_Period_Millis, beatPeriodMillisDefault_,
       phase_, period_Steps_Counter, beat_Step_Phase_Begin, phase_Lag, amplitude_, amplitude_Stable,amp_Increment_Degree, pitchCounter_, pitchIncrementDegree_);
@@ -741,7 +700,7 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
   IrReceiver.resume(); // this statement is needed to close the if statement and allow for new values to be read
   }
 }
-
+// converts decimal number to binary array
 void decimalToBinary(int num_, int binaryArray_[]) {
     int pos_sign;
     if (num_ < 0) {  // Negative number
@@ -770,7 +729,7 @@ void decimalToBinary(int num_, int binaryArray_[]) {
         j--;
     }
 }
-
+// generates sinusoidal leg motion
 float binarySineTrait(float phase_, int trait_){
   float binarySineAngle;
   float mid_point = 25 + (65/2); 
@@ -790,7 +749,7 @@ float binarySineTrait(float phase_, int trait_){
     return binarySineAngle;
   }
 }
-
+// move leg out of midpoint to represent 1 in state 0
 void updateAmplitudeAngles(int counterBinary[], float amplitude_[], int trait_, float phase_, int leftRightControl_){
   int k = 40;
   for(int i = 1; i < 5; i++){
@@ -810,7 +769,6 @@ void updateAmplitudeAngles(int counterBinary[], float amplitude_[], int trait_, 
       amplitude_[SERVOS] = binarySineTrait(phase_, trait_);
     }
   }
-  
 }
 
 float binarySine(float mid_, float ampl_, float phase_, int binary_val){
@@ -821,7 +779,7 @@ float binarySine(float mid_, float ampl_, float phase_, int binary_val){
   binarySineAngle = mid_ + (ampl_ / 2) * sin(2 * PI * phase_);
   return binarySineAngle;
 }
-
+// move leg periodically to represent 1 in state 0
 void updateAmplitudeAnglesDynamic(int counterBinary[], float amplitude_[], int trait_, float phase_, int leftRightControl_){
   float mid = 90;
   float amplitudeSine = 73.5;
@@ -842,12 +800,11 @@ void updateAmplitudeAnglesDynamic(int counterBinary[], float amplitude_[], int t
     }
   }
 }
-
+// displays specified trait in state 0
 void displayTrait(int trait_, float yawAmplitudeChanged_[], float amplitudeStable_[], int ampIncrementDegree_, int binaryArray_[], float amplitude_[], int turningStrokeCount_,
       float pitchAmplitudeChanged_[], int beatPeriodMillisIncr_, int beatPeriodMillis_, int beatPeriodMillisDefault_, float phase_, int binarySwitch_, int leftRightControl_,
       int &yawCounterL_, int &yawCounterR_, int pitchCounter_){
   int n;
-
   if(trait_ == 0){
     if(leftRightControl_ == 0){
       n = yawCounterL_;
@@ -870,6 +827,5 @@ void displayTrait(int trait_, float yawAmplitudeChanged_[], float amplitudeStabl
   else if (binarySwitch_ == 1){
     updateAmplitudeAnglesDynamic(binaryArray_, amplitude_, trait_, phase_, leftRightControl_);
   }
-
 }
 
