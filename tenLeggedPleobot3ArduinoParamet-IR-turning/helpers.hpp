@@ -1,8 +1,7 @@
 // custom functions used in IR control of Pleobot3
 #include <Servo.h> 
 #include <IRremote.hpp>   // IR remote control library
-
-#define SERVOS 5 // the number of servos on each side of the body
+#include "constants.cpp"
 
 // Define IR remote keys for specific programs
 #define Button0 0xE916FF00        // trait inspector; 0-> yaw offset angle, 1-> zigzag number, 2-> pitch offset angle, 3-> period
@@ -26,13 +25,14 @@
 
 int maxState = 6; // the highest number of state currently used
 
-int binaryArray[SERVOS] = {1,0,0,0,0}; // first digit represent sign 1-> +, following 4 are binary digits
-int binarySwitch = 1; // for switching between binary representation, either 0 or 1
+#define SERVOS 5 // the number of servos on each side of the body
 
-int yawCounterL = 0; int yawCounterR = 0; // counts the offset from the default value of yaw amplitude on each side
-
-int pitchCounter = 0; // counts the offset from the default value of pitch amplitude
+float amplitudeStable[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg, not to be updated; same order as in servoPins
+int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for pitch control
 int pitchIncrementDegree = 2; // increment of pitch offset in degrees
+
+unsigned int beatPeriodMillisDefault = 1500; // default value of beat period in ms
+unsigned int beatPeriodMillisIncr = 100; // increment to increase and decrease the beat period duration to control the beat frequency
 
 // Store the servo specs
 // calibration parameters for 2nd prototype
@@ -42,7 +42,12 @@ unsigned int maxServoPulse[SERVOS*2] = {2350,2350,2350,2350,2350,2350,2350,2350,
 float servoAngleRange[SERVOS*2] = {155.641,156.466,153.502,158.893,159.532,155.155,157.404,157.125,158.934,154.985}; // measured physical range of the servo for the respective min and max pulse. Requires initial calibration of each servo to determine their range. ; Same order as in servoPins
 int corrFact[SERVOS*2] = {-30,45,20,45,-15,20,-30,35,-60,-40}; // correction factor after the servos are installed to align the pleopods perfectly vertically; same order as in servoPins
 const unsigned int servoUpdatePeriodMillis = 20; // 20ms = 50Hz, the default for servo actuation
-unsigned int beatPeriodMillisDefault = 1500; // default value of beat period in ms
+
+int binaryArray[SERVOS] = {1,0,0,0,0}; // first digit represent sign 1-> +, following 4 are binary digits
+int binarySwitch = 1; // for switching between binary representation, either 0 or 1
+
+int yawCounterL = 0; int yawCounterR = 0; // counts the offset from the default value of yaw amplitude on each side
+int pitchCounter = 0; // counts the offset from the default value of pitch amplitude
 
 // Initiate servos for the left and right legs - keep left and right servos separate for now
 Servo Pleft[SERVOS]; // left legs
@@ -373,7 +378,7 @@ void setupState(int state_, float amplitude_[], float amplitude_Stable[], int am
 }
 // control with IR remote
 void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_Millis_Incr, unsigned int &State, bool &option_Changed, float amplitude_[SERVOS*2],
-      float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, int amp_Limit, unsigned int &beat_Period_Steps, int servo_Period_Millis, float phase_,
+      float amplitude_Stable[], unsigned int &left_Right_Control, int amp_Increment_Degree, unsigned int &beat_Period_Steps, int servo_Period_Millis, float phase_,
       unsigned int &period_Steps_Counter, int beat_Step_Phase_Begin[SERVOS*2], float phase_Lag, int &trait_, int &turningStrokeCount_, float yawAmplitudeChanged_[], int &binarySwitch_,
       int &yawCounterL_, int &yawCounterR_, int beatPeriodMillisDefault_, int &pitchCounter_, int pitchIncrementDegree_, unsigned long &lastLoopTimeMillis_,
       int yawCurrentStrokeCount_[], int pitchCurrentStrokeCount_[], int turningLeftRight_[], int pitchingUpDown_[]){
@@ -655,19 +660,13 @@ void optionIRRemote(unsigned int &beat_Period_Millis, unsigned int beat_Period_M
         }
         }
         else if(State == 4){
-          // if(amplitude_[0] - amplitude_Stable[0] < amp_Limit){
-          //   for(int i = 0; i < SERVOS * 2; i++) {
-          //     int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-          //     amplitude_[i] = amplitude_[i] + amp_Increment_Degree * offset;
-          
-            // }
-            if(pitchCounter_ < 12){
-              pitchCounter_++;
-            }
-            for(int i = 0; i < SERVOS * 2; i++) {
-              int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
-              amplitude_[i] = amplitude_Stable[i] + pitchIncrementDegree_ * offset * pitchCounter_;
-            }
+          if(pitchCounter_ < 12){
+            pitchCounter_++;
+          }
+          for(int i = 0; i < SERVOS * 2; i++) {
+            int offset = 2 - (i % SERVOS);  // Maps i = {0,5} → 2, {1,6} → 1, ..., {4,9} → -2
+            amplitude_[i] = amplitude_Stable[i] + pitchIncrementDegree_ * offset * pitchCounter_;
+          }
         }
     }
 

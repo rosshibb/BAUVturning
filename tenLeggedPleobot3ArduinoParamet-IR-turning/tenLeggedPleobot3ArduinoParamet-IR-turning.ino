@@ -7,10 +7,8 @@ float pulleyRatio = 1.5; // pulley ratio between the servo and the protopodite. 
 float phaseStart = 0.0; // starting time of the beat
 float phase = 0.0; // specific time during the beat period
 unsigned int beatPeriodMillis = 1500; // duration of the beat period in millisecond; Enter a value in multiples of servoPeriodMillis to ensure that there will be no drift over time because the last step within a beat is <20 ms. In this case, this corresponds to a difference between periods of only 0.02Hz.
-unsigned int beatPeriodMillisIncr = 100; // increment to increase and decrease the beat period duration to control the beat frequency
 
 // Wave parameters
-float amplitudeStable[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg, not to be updated; same order as in servoPins
 float amplitude[SERVOS*2] = {59.0733, 67.0363, 72.3134, 84.0342, 86.127, 59.0733, 67.0363, 72.3134, 84.0342, 86.1277}; // total amplitude of the leg; same order as in servoPins
 float minAlpha[SERVOS*2] = {18.7606, 19.3838, 21.9856, 25.8914, 32.5847, 18.7606, 19.3838, 21.9856, 25.8914, 32.5847}; // minimum alpha, equivalent to alpha'; same order as in servoPins
 float tempAsym[SERVOS*2] = {0.5370, 0.4905, 0.5272, 0.5000, 0.4545, 0.5370, 0.4905, 0.5272, 0.5000, 0.4545}; // temporal asymmetry in t/T; same order as in servoPins
@@ -38,12 +36,8 @@ float pitchAmplitudeChanged[SERVOS*2]; // the amplitude when pitching in pitch z
 unsigned int frontBackControl = 0; // for controlling altering the amplitude of the front and back. Starts at 0 -> Front. Will be able to switch to 1 -> Back, with press of the CH button when in state 5.
 
 int beatStepPhaseBegin[SERVOS*2]; // the periodStepsCounter at which each leg can update the amplitude to the lower value
-int ampIncrementDegree = 5; // increment to increase and decrease the amplitude of leg for turning
-const int ampLimit = 30; // limit of amplitude difference from the default setting in pitch control
 
-// trait investigator parameters
 int trait = 0; // specifies which trait to check; 0->yaw offset angle, 1->zigzag number, 2-> pitch offset angle, 4-> period
-// int binaryArray[SERVOS] = {1,0,0,0,0}; // represents the quantity associated with each trait, first digit represents the sign, following 4 the number
 
 // Switching options
 unsigned int state = 0; // condition controlling the options. Goes up with the push of a switch and resets to 0 once all the options have been cycles through
@@ -82,7 +76,7 @@ alphaAngleDeg(phase, amplitude, minAlpha, tempAsym, dPS, dRS, phaseLag, alphaAng
 
 void loop() {
 // continuously look for changes in state and trait
-optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, ampLimit, beatPeriodSteps, 
+optionIRRemote(beatPeriodMillis, beatPeriodMillisIncr, state, optionChanged, amplitude, amplitudeStable, leftRightControl, ampIncrementDegree, beatPeriodSteps, 
       servoPeriodMillis, phase, periodStepsCounter, beatStepPhaseBegin, phaseLag, trait, turningStrokeCount, yawAmplitudeChanged, binarySwitch, yawCounterL, yawCounterR, beatPeriodMillisDefault,
       pitchCounter, pitchIncrementDegree, lastLoopTimeMillis, yawCurrentStrokeCount, pitchCurrentStrokeCount, turningLeftRight, pitchingUpDown);
 
