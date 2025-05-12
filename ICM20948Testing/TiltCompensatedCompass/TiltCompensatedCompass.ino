@@ -9,6 +9,8 @@ float thetaFnew;
 float phiFold=0;
 float phiFnew;
 
+float filter = .05;
+
 float thetaG=0;
 float phiG=0;
 
@@ -48,13 +50,15 @@ myIMU.getEvent(&accel, &gyro, &temp, &mag);
 
 thetaM=-atan2(accel.acceleration.x/9.8,accel.acceleration.z/9.8)/2/3.141592654*360;
 phiM=-atan2(accel.acceleration.y/9.8,accel.acceleration.z/9.8)/2/3.141592654*360;
-phiFnew=.95*phiFold+.05*phiM;
-thetaFnew=.95*thetaFold+.05*thetaM;
+
+
+phiFnew = (1-filter)*phiFold + filter*phiM;
+thetaFnew = (1-filter)*thetaFold + filter*thetaM;
 
 dt=(millis()-millisOld)/1000.;
 millisOld=millis();
-theta=(theta+gyro.gyro.y*dt)*.95+thetaM*.05;
-phi=(phi-gyro.gyro.x*dt)*.95+ phiM*.05;
+theta=(theta+gyro.gyro.y*dt)*.95+thetaM*.05; //pitch
+phi=(phi-gyro.gyro.x*dt)*.95+ phiM*.05; //roll
 thetaG=thetaG+gyro.gyro.y*dt;
 phiG=phiG-gyro.gyro.x*dt;
 
@@ -64,13 +68,19 @@ thetaRad=theta/360*(2*3.14);
 Xm=mag.magnetic.x*cos(thetaRad)-mag.magnetic.y*sin(phiRad)*sin(thetaRad)+mag.magnetic.z*cos(phiRad)*sin(thetaRad);
 Ym=mag.magnetic.y*cos(phiRad)+mag.magnetic.z*sin(phiRad);
 
-psi=atan2(Ym,Xm)/(2*3.14)*360;
+psi=atan2(Ym,Xm)/(2*3.14)*360; //yaw
 
-Serial.print(accel.acceleration.x/9.8);
+Serial.print(accel.acceleration.x);
 Serial.print(",");
-Serial.print(accel.acceleration.y/9.8);
+Serial.print(accel.acceleration.y);
 Serial.print(",");
-Serial.print(accel.acceleration.z/9.8);
+Serial.print(accel.acceleration.z);
+Serial.print(",");
+Serial.print(mag.magnetic.x);
+Serial.print(",");
+Serial.print(mag.magnetic.y);
+Serial.print(",");
+Serial.print(mag.magnetic.z);
 // Serial.print(",");
 // Serial.print(accel);
 // Serial.print(",");
@@ -79,24 +89,25 @@ Serial.print(accel.acceleration.z/9.8);
 // Serial.print(mg);
 // Serial.print(",");
 // Serial.print(system);
+// Serial.print(",");
+// Serial.print(thetaM);
+// Serial.print(",");
+// Serial.print(phiM);
+// Serial.print(",");
+// Serial.print(thetaFnew);
+// Serial.print(",");
+// Serial.print(phiFnew);
+// Serial.print(",");
+// Serial.print(thetaG);
+// Serial.print(",");
+// Serial.print(phiG);
 Serial.print(",");
-Serial.print(thetaM);
+Serial.print(theta); //pitch
 Serial.print(",");
-Serial.print(phiM);
+Serial.print(phi); //roll
 Serial.print(",");
-Serial.print(thetaFnew);
-Serial.print(",");
-Serial.print(phiFnew);
-Serial.print(",");
-Serial.print(thetaG);
-Serial.print(",");
-Serial.print(phiG);
-Serial.print(",");
-Serial.print(theta);
-Serial.print(",");
-Serial.print(phi);
-Serial.print(",");
-Serial.println(psi);
+Serial.println(psi); //yaw
+
 
 phiFold=phiFnew;
 thetaFold=thetaFnew;
